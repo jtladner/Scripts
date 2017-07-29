@@ -3,10 +3,15 @@ Used to identify genes that are missing from a 'query' genome relative to a 'ref
 
 Two different criteria are used to identify missing genes/features. A gene/feature is flagged as missing if either of the criteria is met.
 
-    1. At least X proportion of a gene/feature's bases have 0x read depth coverage. X is specified with '--maxZeroPerc'. Default is 0.4 (i.e., 40%).
-    2. The average depth of coverage across a gene/feature is less that Y % of the average coverage across the reference genome. Y is specified with '--minAvgCov'. Default is 0.01 (i.e., 1%). 
+    1. At least X proportion of a gene/feature's bases have 0x read depth coverage.
+        - X is specified with '--maxZeroPerc'.
+        - Default is 0.4 (i.e., 40%).
+    2. The average depth of coverage across a gene/feature is less that Y % of the average coverage across the reference genome.
+        - Y is specified with '--minAvgCov'.
+        - Default is 0.01 (i.e., 1%). 
 
 ### Dependencies
+- python
 - bowtie2 (http://bowtie-bio.sourceforge.net/bowtie2/index.shtml)
 - samtools (http://www.htslib.org/)
 
