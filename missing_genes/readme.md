@@ -8,13 +8,19 @@ Used to identify genes that are missing from a 'query' genome relative to a 'ref
 ### Usage
 
 To get get usage info:
-```~/GDrive/scripts/missing_genes_v#.#.py  -h```
+```
+~/GDrive/scripts/missing_genes_v#.#.py  -h
+```
 
 Starting with a single fastq file:
-```~/GDrive/scripts/missing_genes_v#.#.py  -u file1.fastq  -r ref.fasta```
+```
+~/GDrive/scripts/missing_genes_v#.#.py  -u file1.fastq  -r ref.fasta -g geneinfo.txt  -o outname
+```
 
 Starting with multiple fastq files:
-```~/GDrive/scripts/missing_genes_v#.#.py  -u file1.fastq,file2.fastq  -r ref.fasta```
+```
+~/GDrive/scripts/missing_genes_v#.#.py  -u file1.fastq,file2.fastq  -r ref.fasta -g geneinfo.txt -o outname
+```
 
 
 ### Input
