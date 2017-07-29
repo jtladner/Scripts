@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-#*** Formally called "missing_regions_gene-level_repeats.py"
-
 from __future__ import division
 import sys, optparse, os
 from subprocess import Popen, PIPE
@@ -324,7 +322,7 @@ def make_gen_info_file(reference):
 
 # Extracts data from a fasta sequence file. Returns two lists, the first holds the names of the seqs (
 def read_fasta_lists_simple(file):
-        fin = open(file, 'r')
+    fin = open(file, 'r')
     count=0
     names=[]
     seqs=[]
