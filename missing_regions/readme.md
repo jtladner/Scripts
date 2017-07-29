@@ -1,4 +1,4 @@
-# missing_genes
+# missing_genes.py
 Used to identify genes that are missing from a 'query' genome relative to a 'reference' genome.
 
 ### Dependencies
