@@ -12,6 +12,7 @@ def main():
     #Input/output files
     p.add_option('-u', '--unpaired', help='Fastq files with unpaired reads to be mapped to reference. For this purpose, all files should be treated as unpaired. You can combine the mapping of multiple fastqs by entering them together as a comma separated list [None]')
     p.add_option('-r', '--ref', help='Fasta file that was used as reference in mapping. [None, Required]')
+    p.add_option('-g', '--genes',  help='Gene info for the reference strain [None, Required]')
     p.add_option('-o', '--out', default='unknownID', help='Base name for output files. Output files will be written to the current working directory. [unknownID]')
 
 #    p.add_option('-l', '--min_length', type='int', default=10, help='Minimum region length to plot [10]')
@@ -21,7 +22,7 @@ def main():
     p.add_option('--recursThresh', type='int', default=50000, help='Minimum level of coverage required to change consensus. [3000]')
     p.add_option('--offset', type='int', default=33, help='Base quality offset used in the pileup. I believe the default in samtools is Sanger(33) [33]')
     p.add_option('--baseQual', type='int', default=20, help='Minimum base quality for a base to be counted when looking at coverage. [20]')
-    p.add_option('--procs', type='int', default=16, help='Number of processors to use in multi-threaded portions [16]')
+    p.add_option('--procs', type='int', default=1, help='Number of processors to use in multi-threaded portions [1]')
     #p.add_option('--minOvl', type='int', default=20, help='Minimum overlap between missing regions in normal and mapq pileup for the region to be reported [20]')
     p.add_option('--scoreMin', default='L,0,-0.12', help='Minimum score for a good alignment in bowtie2. For 100bp reads, L,0,0=0mismatches, L,0,-0.06=1, L,0,-0.12=2, L,0,-0.18=3, L,0,-0.24=4, L,0,-0.30=5, L,0,-0.6=10. [L,0,-0.12]')
 
@@ -31,7 +32,6 @@ def main():
     p.add_option('-p', '--std_pile', help='Basic pileup from previous run. **Optional starting place. [None]')
     p.add_option('--qual_pile', help='Pileup from previous run that only contains high quality mapped reads. **Optional starting place. [None]')
     p.add_option('--miss_regions', help='Missing regions file from previous run. **Optional starting place. This automatically throws the --justGenes flag. [None]')
-    p.add_option('-g', '--genes',  help='Gene info for the reference strain [None, REQD]')
     p.add_option('--justGenes', action='store_true', default=False, help='Use this flag if you already have the missing regions file and you just want to find the genes that correspond')
     
     #To determine if a gene is missing
