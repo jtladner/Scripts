@@ -51,11 +51,11 @@ Starting with a bam file:
 
 When starting from fastq(s), several output files will be generated. The primary output files of interest are (_outname_ used to specify the output string provided with '-o'):
     
-    1. _outname__missing_genes.txt:
+    1. _outname_ _missing_genes.txt:
     
-    2. _outname__all_genes.txt
+    2. _outname_ _all_genes.txt
     
-    3. _outname__repeat_in_ref_genes.txt
+    3. _outname_ _repeat_in_ref_genes.txt
 
 
 ### Options
