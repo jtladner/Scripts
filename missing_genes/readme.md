@@ -5,6 +5,20 @@ Used to identify genes that are missing from a 'query' genome relative to a 'ref
 - bowtie2 (http://bowtie-bio.sourceforge.net/bowtie2/index.shtml)
 - samtools (http://www.htslib.org/)
 
+
+### Input
+
+1. One or more **fastq files** with reads from the query to be mapped onto the reference
+
+2. A **fasta file** for the reference genome
+
+3. A **tab-delimited text file** with information about the location of genes/features in the reference genome
+    - This file should contain one line for each gene/feature and each line should contain 4 columns in this order:
+        1. Reference sequence name
+        2. Gene name
+        3. Start position of gene/feature (1-based) 
+        4. End position of gene/feature (1-based)
+
 ### Usage
 
 To get get usage info:
@@ -22,10 +36,16 @@ Starting with multiple fastq files:
 ~/GDrive/scripts/missing_genes_v#.#.py  -u file1.fastq,file2.fastq  -r ref.fasta -g geneinfo.txt -o outname
 ```
 
+Starting with multiple fastq files:
+```
+~/GDrive/scripts/missing_genes_v#.#.py  -u file1.fastq,file2.fastq  -r ref.fasta -g geneinfo.txt -o outname
+```
 
-### Input
+Starting with a bam file:
+```
+~/GDrive/scripts/missing_genes_v#.#.py  -b file.bam  -r ref.fasta -g geneinfo.txt -o outname
+```
 
-```Coming soon!```
 
 ### Output
 
