@@ -1,4 +1,4 @@
-# missing_genes.py
+# intraread_phasing.py
 Python script used to phase pairs of variants using individual reads that span both sites.
 
 ### Dependencies
