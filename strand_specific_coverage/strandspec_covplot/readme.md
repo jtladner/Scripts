@@ -8,7 +8,7 @@ Python script used to strand-specific coverage plots.
 - pysam (https://github.com/pysam-developers/pysam)
 - samtools (http://www.htslib.org/)
 - numpy (www.numpy.org)
-- matplotlib (matplotlib.org)
+- matplotlib (https://matplotlib.org)
 
 ### Input
 
