@@ -12,7 +12,7 @@ Python script used to strand-specific coverage plots.
 
 ### Input
 
-1. One or more **sam or bam files** specific as arguments on the command line
+1. One or more **sam or bam files** specified as arguments on the command line
     - The reference needs to be the same in all specified alignment files
     
 ### Usage
@@ -28,6 +28,7 @@ strandspec_covplot_v#.#.py -o out -q 30 sample1.bam sample2.bam sample3.bam
 ```
 
 Analyzing 3 different bams, plotting coverage using only R1 (default) and utilizing only reads with mapping quality ≥ 30 (-q):
+
 **Coverage plots smoothed using a sliding window of 500 nt and a slide of 100 nt (--smooth 500,100)**
 ```
 strandspec_covplot_v#.#.py -o out -q 30 --smooth 500,100 sample1.bam sample2.bam sample3.bam
@@ -44,6 +45,7 @@ strandspec_covplot_v#.#.py -o out -q 30 --useUnpaired sample1.bam sample2.bam sa
 ```
 
 Analyzing 3 different bams, plotting coverage using only R1 (default) and utilizing only reads with mapping quality ≥ 30 (-q):
+
 **Only generating combined coverage plots (--noIndivPlots)**
 ```
 strandspec_covplot_v#.#.py -o out -q 30 --noIndivPlots sample1.bam sample2.bam sample3.bam
