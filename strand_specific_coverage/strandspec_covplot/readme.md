@@ -104,8 +104,7 @@ Options:
   --useUnpaired         Use this flag if you want use reads not specified as
                         R1 or R2 [false]
   --noIndivPlots        Use this flag if you do not want to create plots for
-                        individual bams [false]
-  ```
+                        individual bams [false]```
 
 
 
