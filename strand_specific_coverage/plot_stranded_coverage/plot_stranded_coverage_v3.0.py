@@ -11,14 +11,6 @@ import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties as fp
 fontP = fp()
 
-#import matplotlib as mpl
-#from matplotlib import pylab as plt
-#from matplotlib.ticker import MultipleLocator, FormatStrFormatter
-#import numpy as np
-#typeface='helvetica neue lt std'
-#mpl.rcParams['font.family']=typeface
-#mpl.rcParams['font.size']=22
-
 #Changed option to using R2 instead of using both reads
 #In version 3.0, changed so that multiple bams can be supplied as arguments. A separate plot will be made for each bam. 
 def main():
