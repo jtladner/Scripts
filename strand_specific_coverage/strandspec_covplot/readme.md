@@ -55,7 +55,9 @@ strandspec_covplot_v#.#.py -o out -q 30 --noIndivPlots sample1.bam sample2.bam s
 ### Output
 
 **Note: 
+
     - If using R1, Forward reads are from RNA molecules that were the reverse complement of the reference (E.g., if using positive strand reference, R1 Forward reads = negative strand)
+
     - If using R2, Forward reads are from RNA molecules that were the same strand as the reference (E.g., if using positive strand reference, R2 Forward reads = positive strand)**
 
 
