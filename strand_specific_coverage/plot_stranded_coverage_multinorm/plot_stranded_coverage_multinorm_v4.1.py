@@ -18,6 +18,7 @@ import scipy.stats
 #Changed option to using R2 instead of using both reads
 #In v3, I added an option to supply a file with a bunch of bam file locations included. 
 #In v4, changed the way I'm normalizing. Now normalizing by just taking the average of all the average coverages calculated for the ORFs
+#In v4.1, switched red and green colors in output graphs so that green = reverse strand coverage, red = positive strand
 
 def main():
 
@@ -26,9 +27,8 @@ def main():
     p = optparse.OptionParser(usage)
     
     #Input/output files
-#    p.add_option('-b', '--bam', help='input bam file. Must be indexed [None]')
     p.add_option('-b', '--bams', help='File with a bunch of bam file locations. Can be used instead of providing bams as arguments [None]')
-    p.add_option('-a', '--annots', help='File with names and coordinates for regions to include in plot [None]')
+    p.add_option('-a', '--annots', help='File with names and coordinates for regions to include in plot (0-based) [None]')
     p.add_option('-o', '--out', help='Base name for output files, both a pdf plot and the values used in the plot [None]')
     p.add_option('-q', '--mapq', type='int', default=20, help='minimum mapping quality to be used [20]')
     p.add_option('--sem', default=False, action='store_true', help='Display confidence intervals as standard error, as opposed to standard deviation [false]')
@@ -42,11 +42,13 @@ def main():
     if opts.bams:
         for line in open(opts.bams, 'r'):
             #all_covs is a list containing dictionaries: keys(1)=ref seq names, values(1) = dictionary: keys(2)=ref positions, values(2)=[forward_read_count, reverse_read_count]
+            #ref positions are 0-based
             all_covs.append(get_cov(line.strip(), opts))
     
     if args:
         for each in args:
             #all_covs is a list containing dictionaries: keys(1)=ref seq names, values(1) = dictionary: keys(2)=ref positions, values(2)=[forward_read_count, reverse_read_count]
+            #ref positions are 0-based
             all_covs.append(get_cov(each, opts))
     
     #For output of avg covs per bam
@@ -58,6 +60,7 @@ def main():
     
     #Create a plot for each reference contig
     for ref in all_covs[0].keys():
+        #If at least one of the specified regions is on this reference sequence
         if ref in annots:
             x,y_pos,yerr_pos,y_neg,yerr_neg = info_for_plot([x[ref] for x in all_covs], annots[ref], ref, opts)
             plot_cov('%s_%s.pdf' % (opts.out, ref), x,y_pos,yerr_pos,y_neg,yerr_neg, [x[0] for x in annots])
@@ -134,9 +137,9 @@ def plot_cov(filename, x,y_pos,yerr_pos,y_neg,yerr_neg, names):
     
     fig = plt.figure()
     ax1 = fig.add_subplot(1,1,1)
-    ax1.plot(x, y_pos, 'r-', x, y_neg, 'g-')
-    ax1.errorbar(x, y_pos, yerr=yerr_pos, fmt='o', color='r')
-    ax1.errorbar(x, y_neg, yerr=yerr_neg, fmt='o', color='g')
+    ax1.plot(x, y_pos, 'g-', x, y_neg, 'r-')
+    ax1.errorbar(x, y_pos, yerr=yerr_pos, fmt='o', color='g')
+    ax1.errorbar(x, y_neg, yerr=yerr_neg, fmt='o', color='r')
     ax1.set_xlabel('Genes')
     ax1.set_ylabel('Normalized coverage')
     ax1.set_xticks(x)
@@ -166,7 +169,7 @@ def get_cov(afile, opts):
         for pos in bam.pileup(ref):
             # # of forward and reverse strand reads covering this position
             f_count, r_count = get_counts(pos.pileups, opts)
-            #I may be one off here, NEED TO CHECK
+            #pos.referemce_pos is 0-based
             cov_info[ref][pos.reference_pos] = [f_count, r_count]
     return cov_info
 
