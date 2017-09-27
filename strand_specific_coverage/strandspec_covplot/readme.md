@@ -2,7 +2,6 @@
 Python script used to strand-specific coverage plots.
     
     - Plots are generated with matplotlib
-    
     - However, the raw data for the plots is also output and can be migrated to other graphing softwrae options
 
 ### Dependencies
@@ -31,7 +30,7 @@ strandspec_covplot_v#.#.py -o out -q 30 sample1.bam sample2.bam sample3.bam
 
 Analyzing 3 different bams, plotting coverage using only R1 (default) and utilizing only reads with mapping quality ≥ 30 (-q):
 
-**Coverage plots smoothed using a sliding window of 500 nt and a slide of 100 nt (--smooth 500,100)**
+**Coverage plots smoothed using a sliding window of 500 nt and a step size of 100 nt (--smooth 500,100)**
 ```
 strandspec_covplot_v#.#.py -o out -q 30 --smooth 500,100 sample1.bam sample2.bam sample3.bam
 ```
