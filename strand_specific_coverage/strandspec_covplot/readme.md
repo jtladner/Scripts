@@ -95,6 +95,7 @@ strandspec_covplot_v#.#.py -o out -q 30 --noIndivPlots sample1.bam sample2.bam s
 Options:
   -h, --help            show this help message and exit
   -o OUT, --out=OUT     Base name for output files [None]
+  -q MAPQ, --mapq=MAPQ  minimum mapping quality to be used [20]
   -s SMOOTH, --smooth=SMOOTH
                         Use this option if you want to smooth the coverage
                         plots. Specify window size and slide, comma separated
@@ -102,7 +103,6 @@ Options:
   --useR2               Use this flag if you want use R2 instead of R1 [false]
   --useUnpaired         Use this flag if you want use reads not specified as
                         R1 or R2 [false]
-  -q MAPQ, --mapq=MAPQ  minimum mapping quality to be used [20]
   --noIndivPlots        Use this flag if you do not want to create plots for
                         individual bams [false]
   ```

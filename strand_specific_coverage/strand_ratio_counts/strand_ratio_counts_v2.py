@@ -5,25 +5,16 @@
 from __future__ import division
 import sys, optparse, os, pysam
 
-#For plotting
-#import matplotlib
-#matplotlib.use('PDF')
-#import matplotlib.pyplot as plt
-#from matplotlib.font_manager import FontProperties as fp
-#fontP = fp()
-#Numpy for stdev
-#import numpy as np
-
 #In version 2, added ability to limit calculations to a subset region of the genome
 
-#Provide with a text file that has a head and three tab-delimited columns
-    #Only the third column is used and should be bam file locations.
+#Provide with a text file that has a header and three tab-delimited columns
+    #Only the third column is used and should be bam/sam file locations.
     #This script will calculate the ratio of reads mapped to the various strands and will add this info to the table in the ouput
 
 def main():
 
     #To parse command line
-    usage = "usage: %prog [options] name1,bamnamefile1 [name2,bamnamefile2 ...]"
+    usage = "usage: %prog [options]"
     p = optparse.OptionParser(usage)
     
     #Input/output files
@@ -31,8 +22,8 @@ def main():
     p.add_option('-o', '--out', help='Name for output file [None]')
 #    p.add_option('-m', '--mapQual', default=20, type='int', help='Minimum mapping quality for a read to be used [20]')
     #These are optional, only if you want to only look at reads that overlap a certain region
-    p.add_option('-b', '--beg', type='int', help='1st base in range')
-    p.add_option('-e', '--end', type='int', help='last base in range')
+    p.add_option('-b', '--beg', type='int', help='1st base in range (0-index)')
+    p.add_option('-e', '--end', type='int', help='last base in range (0-index)')
     p.add_option('-v', '--overlap', type='int', default=10, help='required overlap for reads to be inlcuded [10]')
 
     opts, args = p.parse_args()
@@ -50,26 +41,7 @@ def main():
             fout.write("%s\t%.4f\t%.4f\t%.4f\t%d\t%d\n" % ("\t".join(cols), propforw, proprev, ratio, forw, rev))
     fout.close()
 
-    #Make figure
-    #fig = plt.figure()
-    #ax1 = fig.add_subplot(1,1,1)
-    #ax1.boxplot(values)
-    #ax1.set_xlabel('Sample Types')
-    #ax1.set_ylabel('# Positive sense reads/#Negative sense reads')
-    #ax1.set_xticks(range(1,len(names)+1))
-    #ax1.set_xticklabels(names)
-    #fig.savefig(opts.out)
-    #fig.clf()
-
-
 ###-----------------End of main()--------------------------->>>
-
-#def parse_regions(coord_file):
-#    counts_dict={}
-#    for line in open(coord_file, 'r'):
-#        cols=line.strip().split('\t')
-#        counts_dict[tuple(cols)]=0
-#    return counts_dict
 
 def parse_strand_indiv(each, opts):
     ratios=[]
