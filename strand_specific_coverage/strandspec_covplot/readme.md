@@ -1,6 +1,8 @@
 # strandspec_covplot.py
 Python script used to strand-specific coverage plots.
-    - Quick and dirty plots are generated with matplotlib
+    
+    - Plots are generated with matplotlib
+    
     - However, the raw data for the plots is also output and can be migrated to other graphing softwrae options
 
 ### Dependencies
