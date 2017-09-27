@@ -61,7 +61,7 @@ Options:
                         Use this option if you want to smooth the coverage
                         plots. Specify window size and slide, comma separated
                         [None]
-    ```
+```
 
 
 
