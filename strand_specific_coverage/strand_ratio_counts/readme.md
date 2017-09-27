@@ -54,7 +54,6 @@ strand_ratio_counts_v#.#.py -i tab-delim_bam_info.txt -o output.txt -v 50 -b 0 -
 
 ### Options
 
-  ```
 Options:
   -h, --help            show this help message and exit
   -i INP, --inp=INP     Name for input file [None]
@@ -63,7 +62,6 @@ Options:
   -e END, --end=END     last base in range
   -v OVERLAP, --overlap=OVERLAP
                         required overlap for reads to be inlcuded [10]
-    ```
 
 
 

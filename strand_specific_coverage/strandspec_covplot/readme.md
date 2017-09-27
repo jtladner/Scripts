@@ -91,7 +91,7 @@ strandspec_covplot_v#.#.py -o out -q 30 --noIndivPlots sample1.bam sample2.bam s
 
 ### Options
 
-
+  ```
 Options:
   -h, --help            show this help message and exit
   -o OUT, --out=OUT     Base name for output files [None]
@@ -105,6 +105,7 @@ Options:
                         R1 or R2 [false]
   --noIndivPlots        Use this flag if you do not want to create plots for
                         individual bams [false]
+  ```
 
 
 
