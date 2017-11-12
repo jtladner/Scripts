@@ -1,8 +1,8 @@
 # strandspec_covplot.py
-Python script used to strand-specific coverage plots.
+Python script used to generate strand-specific coverage plots.
     
     - Plots are generated with matplotlib
-    - However, the raw data for the plots is also output and can be migrated to other graphing softwrae options
+    - However, the raw data for the plots is also output and can be migrated to other graphing software options
 
 ### Dependencies
 - python
@@ -18,7 +18,7 @@ Python script used to strand-specific coverage plots.
     
 ### Usage
 
-To get get usage info:
+To get usage info:
 ```
 strandspec_covplot_v#.#.py  -h
 ```
