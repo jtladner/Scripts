@@ -13,6 +13,15 @@ from scipy.stats import linregress
 
 from collections import defaultdict
 
+errorMessages = {
+    "posNS": "The positive control sample resulted in a non-significant slope!",
+    "negS": "The negative control sample resulted in a significant slope!",
+    "posLow": "The positive control sample resulted in smaller than expected slope!",
+    "negHigh": "The negative control sample resulted in higher than expected slope!",
+    "poorCorr": "The correlation coefficient for this sample is low!",
+    "moreDil":  "Consider including more dilutions for this sample!"
+}
+
 # This script is used for processing data from competitive FLISA assays with multiple dilutions per sample
 
 def main():
@@ -22,32 +31,24 @@ def main():
     #Experimental data
     p.add_option('-d', '--data',  help='File containing data from an assay. Should include both a positive and negative control sample. Columns: sample_name, rep#, sample_type, datapoints, associated_blank [None, REQ]')
     p.add_option('--delim', default="\t", help="Delimiter used in the data file. [\\t]")
+    p.add_option('--minPosSlope', type="float", default=100, help="If the slope for the positive control sample is less than this, a warning will be issued. [100]")
+    p.add_option('--maxNegSlope', type="float", default=30, help="If the slope for the negative control sample is greater than this, a warning will be issued. [30]")
+    p.add_option('--minRvalue', type="float", default=0.97, help="If the correlation coefficient for a sample is less than this, a warning will be issued. [0.97]")
+    p.add_option('--maxSlopeRatio', type="float", default=1.2, help="If the ratio of the (slope from empty control and most dilute sample)/(best dilution slope) is greater than this, a warning will be issued. [1.2]")
 
-    #Expectation info for flagging potential issues
-#    p.add_option('-e', '--enrDir',  help='Directory containing lists of enriched peptides. [None, REQ]')
-#    p.add_option('--enrExt', help='Common file ending for files containing enriched sets of peptides. Once removed, the remaining filename should consist only of sample name(s) [None, REQ]')
-#    p.add_option('--snDelim', default="~", help='Delimiter used to separate sample names in pEnrich files [~]')
-
-    #Negative contols
-#    p.add_option('--negMatrix',  help='Optional way to provide a separate data matrix for negative controls. If not provided, negative controls will be assumed to be from the same matrix as the experiemntal data  [None, OPT]')
-#    p.add_option('-c', '--negControls',  help='Comma-delimited names of samples to use as negative controls. If this is not provided, then all of the samples in the negative control matrix will be used [None, REQ]')
-#    p.add_option('-x', '--xLabel', default="", help='Label to be used for x-axis. []')
-
-    #Output controls
-#    p.add_option('-o', '--outDir', help='Directory name for output files. Will be created. [None]')
-#    p.add_option('--plotType', default="png", help='Type of plot to generate. This should be a file extension recognized by matplotlib, e.g., pdf, png, tiff [png]')
-#    p.add_option('--plotLog', default=False, action="store_true", help="Use if you want axes to be shown on a log-scale. [False]")
-#    p.add_option('--negColor', default="#1b9e77", help='Color to use for Unenriched peptides. [#1b9e77]')
-#    p.add_option('--posColor', default="#d95f02", help='Color to use for Enenriched peptides. [#d95f02]')
 
     opts, args = p.parse_args()
-
+        
+    #Define colors for experimental samples
+    colL = ["#cc79a7", "#0072b2", "#f0e442"]
+    
     # Print command used 
-    print("Command run: '%s'" % (sys.argv[0]))
+    print("Command run: '%s'" % ("  ".join(sys.argv)))
     
     #Read in data file 
     dataD, dataLabels, emptyLabel = parseData(opts.data, delim=opts.delim)
     
+    # Check to make sure there is only one positive control, one negative control and at least one experimental sample
     abort = 0
     
     if len(dataD["positive"]) != 1:
@@ -59,31 +60,75 @@ def main():
     if len(dataD["experimental"]) == 0:
         print("Expected at least 1 experimental sample, found %d" % (len(dataD["experimental"])))
         abort = 1
-    
     if abort:
         print("Aborting run because of the above error(s).")
+
     else:
-            
-        
+        #Create list to hold warnings
+        warnings = []
+                    
         #Calculate slope, etc. for positive control sample
         posName = list(dataD["positive"].keys())[0]
-        posSlope, posPvalue, posRvalue, posDatapoints = bestSlope(dataD["positive"][posName], dataLabels)
-        print("Positive", posName, posSlope, posPvalue, posRvalue, posDatapoints)
+        posSlope, posPvalue, posRvalue, posYinter, posDatapoints = bestSlope(dataD["positive"][posName], dataLabels)
         
-        
+        # Some quality checks
+        if posPvalue > 0.05:
+            warnings.append(errorMessages["posNS"])
+        if posSlope < opts.minPosSlope:
+            warnings.append(errorMessages["posLow"])
+        if posRvalue < opts.minRvalue:
+            warnings.append("%s: Positive" % (errorMessages["poorCorr"]))
+
         #Calculate slope, etc. for negative control sample
         negName = list(dataD["negative"].keys())[0]
-        negSlope, negPvalue, negRvalue, negDatapoints = bestSlope(dataD["negative"][negName], dataLabels)
-        print("Negative", negName, negSlope, negPvalue, negRvalue, negDatapoints)
+        negSlope, negPvalue, negRvalue, negYinter, negDatapoints = bestSlope(dataD["negative"][negName], dataLabels)
+
+        # Some quality checks
+        if negPvalue <= 0.05:
+            warnings.append(errorMessages["negS"])
+        if negSlope > opts.maxNegSlope:
+            warnings.append(errorMessages["negHigh"])
+
+    #initiate figure
+    fig,ax = plt.subplots(1,1,figsize=(5,5),facecolor='w')            
+
 
     with open("%s_results.tsv" % (".".join(opts.data.split(".")[:-1])), "w") as fout:
-        fout.write("Sample\tCategory\tDatapointsUsed\tSlope\tPvalue\tCorrelationCoefficient\tPosSlopeRatio\tNegSlopeRatio\n")
+        
+
+        # Write header and control info to output file
+        fout.write("Sample\tCategory\tDatapointsUsed\tSlope\ty-intercept\tPvalue\tCorrelationCoefficient\tPosSlopeRatio\tNegSlopeRatio\n")
+        fout.write("%s\t%s\t%s\t%.2f\t%.2f\t%.6f\t%.3f\t%.3f\t%.3f\n" % (posName, "Positive",  ",".join(posDatapoints), posSlope, posYinter, posPvalue, posRvalue, posSlope/posSlope, posSlope/negSlope))
+        fout.write("%s\t%s\t%s\t%.2f\t%.2f\t%.6f\t%.3f\t%.3f\t%.3f\n" % (negName, "Negative",  ",".join(negDatapoints), negSlope, negYinter, negPvalue, negRvalue, negSlope/posSlope, negSlope/negSlope))
+
+        # Plot control data and set axis labels        
+        xInts = np.array([float(x) for x in dataLabels])
+
+        plotPoints(ax, {k:dataD["positive"][posName][k] for k in dataLabels}, "#009e73", posDatapoints, "positive")
+        ax.plot(xInts, posYinter + posSlope*xInts, c="#009e73", alpha=0.6, linestyle=":")
+        plotPoints(ax, {k:dataD["negative"][negName][k] for k in dataLabels}, "#d55e00", negDatapoints, "negative")
+        ax.plot(xInts, negYinter + negSlope*xInts, c="#d55e00", alpha=0.6, linestyle=":")
+
+        
+        
+        ax.set_ylabel("Signal", fontsize=15)
+        ax.set_xlabel("Dilution", fontsize=15)
+
         slopeD={}
         
         for samp, sampD in dataD["experimental"].items():
             slopeD[samp] = {}
-            slope, pvalue, rvalue, datapoints = bestSlope(sampD, dataLabels)
+            slope, pvalue, rvalue, yinter, datapoints = bestSlope(sampD, dataLabels)
             
+            #Compare difference between empty control and most dilute sample, to see if additional dilutions may be needed
+            empSlope = simpSlope({float(dataLabels[-1]):sampD[dataLabels[-1]], float(dataLabels[-1])+1:sampD["N"]})
+                
+            # Some quality checks
+            if rvalue < opts.minRvalue:
+                warnings.append("%s: %s" % (errorMessages["poorCorr"], samp))
+            if empSlope/slope > opts.maxSlopeRatio:
+                warnings.append("%s: %s" % (errorMessages["moreDil"], samp))
+
 #            slopeD[samp]["slope"] = slope
 #            slopeD[samp]["rvalue"] = rvalue
 #            slopeD[samp]["datapoints"] = datapoints
@@ -115,59 +160,53 @@ def main():
             else:
                 cat = "Weak"
             
-            fout.write("%s\t%s\t%s\t%.2f\t%.6f\t%.3f\t%.3f\t%.3f\n" % (samp, cat, ",".join(datapoints), slope, pvalue, rvalue, slope/posSlope, slope/negSlope))
+            fout.write("%s\t%s\t%s\t%.2f\t%.2f\t%.6f\t%.3f\t%.3f\t%.3f\n" % (samp, cat, ",".join(datapoints), slope, yinter, pvalue, rvalue, slope/posSlope, slope/negSlope))
             
+            # Plot points
+            plotPoints(ax, {k:sampD[k] for k in dataLabels}, colL[len(slopeD)-1], datapoints, samp)
 
+            # Linestyle is defined based on strength of interaction
+            if cat in ["VeryStrong", "Strong"]:
+                ls="-"
+            elif cat in ["Intermediate-Strong", "Intermediate"]:
+                ls="-."
+            elif cat in ["Intermediate-Weak", "Weak"]:
+                ls="--"
+            else:
+                ls=":"
+            
+            # Plot line
+            ax.plot(xInts, yinter + slope*xInts, c=colL[len(slopeD)-1], alpha=0.6, linestyle=ls)
+
+            
+    #Save figure
+    ax.legend()
+    fig.savefig("%s_results.pdf" % (".".join(opts.data.split(".")[:-1])),dpi=300,bbox_inches='tight')
     
-#     Prep negative control data for plotting on x-axis, this will be the same across all of the plots
-#     if opts.negMatrix:
-#         negD = io.fileDictFullRowNames(opts.negMatrix, opts.delim)
-#     else:
-#         negD = dataD
-#     
-#     if not opts.negControls:
-#         negNames = list(negD.keys())
-#     else:
-#         negNames = opts.negControls.split(",")
-#     
-#     peptideNames = list(negD[negNames[0]].keys())
-#     
-#     x = [np.mean([float(negD[sn][pn]) for sn in negNames]) for pn in peptideNames]
-# 
-#     
-#     Read in lists of enriched peptides
-#     enrFiles = glob.glob("%s/*%s" % (opts.enrDir, opts.enrExt))
-# 
-#     Generate plot for each list of enriched peptides
-#     for eF in enrFiles:
-#         enrichedD = io.fileEmptyDict(eF, header=False)
-#         sNames = eF.split("/")[-1].split(opts.enrExt)[0].split(opts.snDelim)
-#         
-#         Average values for y-axis
-#         y = [np.mean([float(dataD[sn][pn]) for sn in sNames]) for pn in peptideNames]
-#         
-#         Determine color for each point
-#         c = [opts.posColor if p in enrichedD else opts.negColor for p in peptideNames]
-#         
-#         Generate plot
-#         fig,ax = plt.subplots(1,1,figsize=(5,5),facecolor='w')            
-#         
-#         if opts.plotLog:
-#             ax.scatter(np.log10(x), np.log10(y), c=c, alpha=0.5)
-#         else:
-#             ax.scatter(x, y, c=c, alpha=0.5)
-# 
-#         ax.set_ylabel(",".join(sNames), fontsize=15)
-#         ax.set_xlabel(opts.xLabel, fontsize=15)
-# 
 #        if lim:
 #            ax.set_xlim(lim[0], lim[1])
 #            ax.set_ylim(lim[0], lim[1])
-# 
-#         fig.savefig("%s/%s.%s" % (opts.outDir, opts.snDelim.join(sNames), opts.plotType), dpi=300, bbox_inches='tight')
-# 
-#         fig.close()
+
+    # Report encountered warnings
+    if warnings:
+        print("\n***WARNING***\n%s" % ("\n".join(warnings)))
+
 #----------------------End of main()
+
+#Keys need to be floats or ints
+def simpSlope(sampD):
+    x=[]
+    y=[]
+    
+    for dil, dL in sampD.items():
+        for point in dL:
+            x.append(dil)
+            y.append(point)
+    
+    results = linregress(x, y)
+        
+    return results.slope
+
 
 def bestSlope(sampD, dataLabels):
     slope = -1000
@@ -187,9 +226,10 @@ def bestSlope(sampD, dataLabels):
             slope = results.slope
             pvalue = results.pvalue
             rvalue = results.rvalue
+            yinter = results.intercept
             datapoints = these
         
-    return slope, pvalue, rvalue, datapoints
+    return slope, pvalue, rvalue, yinter, datapoints
 
 def parseData(file, delim="\t"):
 
@@ -224,6 +264,29 @@ def parseData(file, delim="\t"):
                             dataD[sampType][sampName][headMap[i]].append(float(x))
 
     return dataD, dataLabels, emptyLabel
+
+def plotPoints(axObj, aDataD, color, pointsUsed, lab):
+    x=[]
+    y=[]
+    
+    
+    for k, v in aDataD.items():
+        for each in v:
+            x.append(float(k))
+            y.append(float(each))
+    
+    axObj.scatter(x, y, c=color, alpha=0.6, zorder=4, label=lab)
+
+    xUsed=[]
+    yUsed=[]
+
+    for k in pointsUsed:
+        for each in aDataD[k]:
+            xUsed.append(float(k))
+            yUsed.append(float(each))
+    
+    axObj.scatter(xUsed, yUsed, facecolors='none', edgecolors="black", alpha=0.6, zorder=5)
+    
 
 
 ###------------------------------------->>>>    
