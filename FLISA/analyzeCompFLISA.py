@@ -19,7 +19,8 @@ errorMessages = {
     "posLow": "The positive control sample resulted in smaller than expected slope!",
     "negHigh": "The negative control sample resulted in higher than expected slope!",
     "poorCorr": "The correlation coefficient for this sample is low!",
-    "moreDil":  "Consider including more dilutions for this sample!"
+    "moreDil":  "Consider including more dilutions for this sample!",
+    "moreConc":  "Used three highest concentrations, consider changing dilutions!"
 }
 
 # This script is used for processing data from competitive FLISA assays with multiple dilutions per sample
@@ -78,6 +79,17 @@ def main():
             warnings.append(errorMessages["posLow"])
         if posRvalue < opts.minRvalue:
             warnings.append("%s: Positive" % (errorMessages["poorCorr"]))
+        if posDatapoints == dataLabels[:3]:
+            warnings.append("%s: Positive" % (errorMessages["moreConc"]))
+        
+        
+        #Compare difference between empty control and most dilute sample, to see if additional dilutions may be needed
+        empPosSlope = simpSlope({float(dataLabels[-1]):dataD["positive"][posName][dataLabels[-1]], float(dataLabels[-1])+1:dataD["positive"][posName]["N"]})
+            
+        # Check if we may need more dilutions for the positive control
+        if empPosSlope/posSlope > opts.maxSlopeRatio:
+            warnings.append("%s: Positive" % (errorMessages["moreDil"]))
+
 
         #Calculate slope, etc. for negative control sample
         negName = list(dataD["negative"].keys())[0]
@@ -128,6 +140,8 @@ def main():
                 warnings.append("%s: %s" % (errorMessages["poorCorr"], samp))
             if empSlope/slope > opts.maxSlopeRatio:
                 warnings.append("%s: %s" % (errorMessages["moreDil"], samp))
+            if datapoints == dataLabels[:3]:
+                warnings.append("%s: %s" % (errorMessages["moreConc"], samp))
 
 #            slopeD[samp]["slope"] = slope
 #            slopeD[samp]["rvalue"] = rvalue
@@ -137,10 +151,10 @@ def main():
             negRatio = slope/negSlope
             
             #Determine category
-            if pvalue>0.05 or negRatio < 2:
+            if pvalue>0.05 or (0 < negRatio < 2):
                 cat = "None"
-                if negRatio > 2:
-                    print("Check data for %s. Linear regression is insignifiacnt (pvalue = %f) but slope is %fx greater than negative control (%f)" % (samp, pvalue, negRatio, slope))
+                if abs(negRatio) > 2:
+                    print("\nCheck data for %s. Linear regression is insignifiacnt (pvalue = %f) but slope is %fx greater than negative control (%f)" % (samp, pvalue, negRatio, slope))
             
             elif posRatio > 1.1:
                 cat = "VeryStrong"
