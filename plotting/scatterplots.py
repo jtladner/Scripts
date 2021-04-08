@@ -5,7 +5,7 @@ import matplotlib as mpl
 mpl.rcParams['pdf.fonttype'] = 42
 
 
-import optparse
+import argparse
 #import pandas as pd
 #import seaborn as sns
 import numpy as np
@@ -16,26 +16,33 @@ import inout as io
 colPalette = ["#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "#000000"]
 
 def main():
-    usage = '%prog [options]'
-    p = optparse.OptionParser()
-    p.add_option('-d', '--data',  help='Matrix containing data that will be used to generate scatterplots. [None, REQ]')
-    p.add_option('-o', '--outfile', help='Name for out file [None, REQ]')
-    p.add_option('-x', '--xHead', help='Header name to use for x axis. [None, OPT]')
-    p.add_option('-y', '--yHead', help='Header name to use for y axis. [None, OPT]')
-    p.add_option('-c', '--color',  help='Header name to use to color points in plot. [None, OPT]')
-    p.add_option('--cMap',  help='Optional way of mapping the "color" variable in the data matrix to another categorical variable. 3 comma-separated variables should be provided: map file, key header, value header [None, OPT]')
-    p.add_option('-b', '--batch',  help='An alternative way to provide input/output files that allows the generation of multiple plots with a single command. File provided should be tab-delimited, one line per output plot: xHeader, yHeader, outfile, colorHeader. Colorheader column is optional. [None, OPT]')
 
-    p.add_option('--delim', default="\t", help="Delimiter used in the data file. [\t]")
-    p.add_option('--xLab', help="String for x-label. If not provided, --xHead is used. [None]")
-    p.add_option('--yLab', help="String for y-label. If not provided, --yHead is used.[None]")
-    p.add_option('--xLegend', default=0.1, type="float", help="x-coordinate to use for color legend.[0.1]")
-    p.add_option('--yLegend', default='top', help="Indicate whether you want the legend at the 'top' or 'bottom' of the plot.[top]")
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    p.add_option('--xLog', default=False, action="store_true", help="Use if you want x-axis to be shown on a log-scale. [False]")
-    p.add_option('--yLog', default=False, action="store_true",  help="Use if you want y-axis to be shown on a log-scale.[False]")
+    reqArgs = parser.add_argument_group('required arguments')
+    reqArgs.add_argument('-d', '--data',  help='Data matrix for generating scatterlots.', required=True)
+    reqArgs.add_argument('-o', '--outfile', help='Name for out file.', required=True)
+    reqArgs.add_argument('-x', '--xHead',  help='Header in data file for x-axis.', required=True)
+    reqArgs.add_argument('-y', '--yHead',  help='Header in data file for y-axis.', required=True)
 
-    opts, args = p.parse_args()
+    parser.add_argument('-c', '--color',  help='Header name to use to color points in plot.')
+    parser.add_argument('--cMap',  help='Optional way of mapping the "color" variable in the data matrix to another categorical variable. 3 comma-separated variables should be provided: map file, key header, value header.')
+    parser.add_argument('--xLog', default=False, action="store_true", help="Use if you want x-axis to be shown on a log-scale.")
+    parser.add_argument('--yLog', default=False, action="store_true", help="Use if you want y-axis to be shown on a log-scale.")
+    parser.add_argument('--delim', default="\t", help="Delimiter used in the data file.")
+    parser.add_argument('--xLab', help="String for x-label. If not provided, --xHead is used.")
+    parser.add_argument('--yLab', help="String for y-label. If not provided, --yHead is used.")
+#    parser.add_argument('--width', default=5, type=int, help="Figure width.")
+#    parser.add_argument('--height', default=4, type=int, help="Figure height.")
+    parser.add_argument('--include', help="Header,Value pairs used to indicate a subset of rows to include.", nargs='*')
+    parser.add_argument('--exclude', help="Header,Value pairs used to indicate a subset of rows to exclude.", nargs='*')
+    parser.add_argument('--xLegend', default=0.1, type=float, help="x-coordinate to use for color legend.")
+    parser.add_argument('--yLegend', default='top', help="Indicate whether you want the legend at the 'top' or 'bottom' of the plot.")
+
+    parser.add_argument('-b', '--batch',  help='An alternative way to provide input/output files that allows the generation of multiple plots with a single command. File provided should be tab-delimited, one line per output plot: xHeader, yHeader, outfile, colorHeader. Colorheader column is optional. [None, OPT]')
+
+    opts = parser.parse_args()
+
     
     if opts.cMap:
         mapF, kHead, vHead = opts.cMap.split(",")
@@ -69,7 +76,18 @@ def main():
     else:
         #Read in data file 
         dataD = io.fileDictFull(opts.data, opts.delim)
+        
+        if opts.include:
+            for each in opts.include:
+                header, val = each.split(",")
+                dataD = onlyInclude(dataD, header, val)
 
+        if opts.exclude:
+            for each in opts.exclude:
+                header, val = each.split(",")
+                dataD = toExclude(dataD, header, val)
+
+        
         # Make sure data columns are formatted properly 
         prepData(dataD, opts)
     
@@ -78,20 +96,37 @@ def main():
 
 #----------------------End of main()
 
+def toExclude(dataD, header, val):
+    newD = {k:[] for k in dataD}
+    for i,v in enumerate(dataD[header]):
+        if v!=val:
+            for thisK, thisV in dataD.items():
+                newD[thisK].append(thisV[i])
+    return newD
+
+def onlyInclude(dataD, header, val):
+    newD = {k:[] for k in dataD}
+    for i,v in enumerate(dataD[header]):
+        if v==val:
+            for thisK, thisV in dataD.items():
+                newD[thisK].append(thisV[i])
+    return newD
+
+
 def prepData(dataD, opts):
     yHeadList = opts.yHead.split(",")
     for each in yHeadList:
         if opts.yLog:
-            dataD[each] = [np.log10(float(a)) for a in dataD[each]]
+            dataD[each] = [np.log10(float(a)) if a else None for a in dataD[each]]
         else:
-            dataD[each] = [float(a) for a in dataD[each]]
+            dataD[each] = [float(a) if a else None for a in dataD[each]]
 
     xHeadList = opts.xHead.split(",")
     for each in xHeadList:
         if opts.xLog:
-            dataD[each] = [np.log10(float(a)) for a in dataD[each]]
+            dataD[each] = [np.log10(float(a))  if a else None for a in dataD[each]]
         else:
-            dataD[each] = [float(a) for a in dataD[each]]
+            dataD[each] = [float(a) if a else None for a in dataD[each]]
 
     #Average values if multiple column headers are provided
     if len(yHeadList) >1: 
