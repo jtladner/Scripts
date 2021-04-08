@@ -5,7 +5,7 @@ import matplotlib as mpl
 mpl.rcParams['pdf.fonttype'] = 42
 
 
-import optparse
+import argparse
 import pandas as pd
 import seaborn as sns
 import numpy as np
@@ -19,25 +19,32 @@ import inout as io
 # This script reads in 1) normalized or raw read counts and 2) bins and calculated zscores
 
 def main():
-    usage = '%prog [options]'
-    p = optparse.OptionParser()
-    p.add_option('-d', '--data',  help='Data matrix for generating boxplots. [None, REQ]')
-    p.add_option('-o', '--outfile', help='Name for out file [None, REQ]')
-    p.add_option('-x', '--xHead',  help='Header in data file for x-axis categories. [None, REQ]')
-    p.add_option('-y', '--yHead',  help='Header in data file for y-axis. [None, REQ]')
-    p.add_option('--hue',  help='Header in data file for "hue", or subcategories for x-axis. [None]')
-    p.add_option('--logY', default=False, action="store_true", help="Use this option if you want the y-axis to be coversted to log scale. If some of the values are <=0, an integer will be added to all y-axis values prior to conversion [None]")
 
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    p.add_option('--delim', default="\t", help="Delimiter used in the data file. [\t]")
-    p.add_option('--xLab', help="String for x-label. If not provided, --xHead is used. [None]")
-    p.add_option('--yLab', help="String for y-label. If not provided, --yHead is used.[None]")
-    p.add_option('--xRotate', default=False, action="store_true", help="Use this option if you want the x-labels to be rotated vertically. [None]")
-    p.add_option('--width', default=5, type="int", help="Figure width. [5]")
-    p.add_option('--height', default=4, type="int", help="Figure height. [4]")
+    reqArgs = parser.add_argument_group('required arguments')
+    # Note that these arguments are added directly to the new argument group "reqArgs", not "parser" 
+    reqArgs.add_argument('-d', '--data',  help='Data matrix for generating boxplots.', required=True)
+    reqArgs.add_argument('-o', '--outfile', help='Name for out file.', required=True)
+    reqArgs.add_argument('-x', '--xHead',  help='Header in data file for x-axis categories.', required=True)
+    reqArgs.add_argument('-y', '--yHead',  help='Header in data file for y-axis.', required=True)
 
-    opts, args = p.parse_args()
-    
+    parser.add_argument('--hue',  help='Header in data file for "hue", or subcategories for x-axis.')
+    parser.add_argument('--logY', default=False, action="store_true", help="Use this option if you want the y-axis to be coversted to log scale. If some of the values are <=0, an integer will be added to all y-axis values prior to conversion")
+    parser.add_argument('--delim', default="\t", help="Delimiter used in the data file.")
+    parser.add_argument('--xLab', help="String for x-label. If not provided, --xHead is used.")
+    parser.add_argument('--yLab', help="String for y-label. If not provided, --yHead is used.")
+    parser.add_argument('--yLim', help="Comma-delim floats to use as the min and max y-axis limits.")
+    parser.add_argument('--xRotate', default=False, action="store_true", help="Use this option if you want the x-labels to be rotated vertically.")
+    parser.add_argument('--noStripPlot', default=False, action="store_true", help="Use this option if you want to only plot the boxes, not the corresponding strip plots.")
+    parser.add_argument('--width', default=5, type=int, help="Figure width.")
+    parser.add_argument('--height', default=4, type=int, help="Figure height.")
+    parser.add_argument('--include', help="Header,Value pairs used to indicate a subset of rows to include.", nargs='*')
+    parser.add_argument('--exclude', help="Header,Value pairs used to indicate a subset of rows to exclude.", nargs='*')
+    parser.add_argument('--axhline', help="Y-axis value at which a horizontal line should be drawn.")
+
+    opts = parser.parse_args()
+
     #Read in data file and create pandas dataframe
     dataD = io.fileDictFull(opts.data, opts.delim)
     dataD[opts.yHead] = [float(a) for a in dataD[opts.yHead]]
@@ -54,6 +61,17 @@ def main():
     
     df = pd.DataFrame(dataD)
     
+    if opts.include:
+        for each in opts.include:
+            header, val = each.split(",")
+            df = df[df[header] == val]
+
+    if opts.exclude:
+        for each in opts.exclude:
+            header, val = each.split(",")
+            df = df[df[header] != val]
+
+    
     catBoxplot(df, opts, colorHead=opts.hue, xLab=opts.xLab, yLab=opts.yLab, out=opts.outfile)
 
 #----------------------End of main()
@@ -67,13 +85,18 @@ def catBoxplot(df, opts, colorHead=None, xLab=None, yLab=None, out=None):
     fig,ax = plt.subplots(1,1,figsize=(opts.width, opts.height),facecolor='w')
     
     if colorHead:
-        sns.boxplot(x=opts.xHead, y=opts.yHead, hue=colorHead, data=df, ax=ax, fliersize=0)
-        sns.stripplot(x=opts.xHead, y=opts.yHead, hue=colorHead, data=df, jitter=True, dodge=True, linewidth=0.5, ax=ax)
+        sns.boxplot(x=opts.xHead, y=opts.yHead, hue=colorHead, data=df, ax=ax, fliersize=0, zorder=2)
+        if not opts.noStripPlot:
+            sns.stripplot(x=opts.xHead, y=opts.yHead, hue=colorHead, data=df, jitter=True, dodge=True, linewidth=0.5, ax=ax, zorder=3)
     
     else:
-        sns.boxplot(x=opts.xHead, y=opts.yHead, data=df, ax=ax, fliersize=0)
-        sns.stripplot(x=opts.xHead, y=opts.yHead, data=df, jitter=True, dodge=True, linewidth=0.5, ax=ax)
-
+        sns.boxplot(x=opts.xHead, y=opts.yHead, data=df, ax=ax, fliersize=0, zorder=2)
+        if not opts.noStripPlot:
+            sns.stripplot(x=opts.xHead, y=opts.yHead, data=df, jitter=True, dodge=True, linewidth=0.5, ax=ax, zorder=3)
+    
+    if opts.axhline:
+        ax.axhline(float(opts.axhline), 0, 1, zorder=1, ls='dotted', c='k')
+    
     plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
 
     ax.set_xlabel(xLab, fontsize=20)
@@ -88,6 +111,10 @@ def catBoxplot(df, opts, colorHead=None, xLab=None, yLab=None, out=None):
     
     if opts.xRotate:
         plt.xticks(rotation="vertical")
+    
+    if opts.yLim:
+        yMin, yMax = [float(y) for y in opts.yLim.split(",")]
+        ax.set_ylim(yMin, yMax)
     
     if out:
         plt.savefig(out,dpi=300,bbox_inches='tight')
