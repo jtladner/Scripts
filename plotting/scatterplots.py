@@ -21,14 +21,15 @@ def main():
 
     reqArgs = parser.add_argument_group('required arguments')
     reqArgs.add_argument('-d', '--data',  help='Data matrix for generating scatterlots.', required=True)
-    reqArgs.add_argument('-o', '--outfile', help='Name for out file.', required=True)
-    reqArgs.add_argument('-x', '--xHead',  help='Header in data file for x-axis.', required=True)
-    reqArgs.add_argument('-y', '--yHead',  help='Header in data file for y-axis.', required=True)
+
+    parser.add_argument('-o', '--outfile', help='Name for out file.')
+    parser.add_argument('-x', '--xHead',  help='Header in data file for x-axis.')
+    parser.add_argument('-y', '--yHead',  help='Header in data file for y-axis.')
 
     parser.add_argument('-c', '--color',  help='Header name to use to color points in plot.')
     parser.add_argument('--cMap',  help='Optional way of mapping the "color" variable in the data matrix to another categorical variable. 3 comma-separated variables should be provided: map file, key header, value header.')
-    parser.add_argument('--xLog', default=False, action="store_true", help="Use if you want x-axis to be shown on a log-scale.")
-    parser.add_argument('--yLog', default=False, action="store_true", help="Use if you want y-axis to be shown on a log-scale.")
+    parser.add_argument('--xLog', default=False, type=float, help="Use if you want x-axis to be shown on a log-scale. Argument provided should be a float to add to the y values before calculating the log value.")
+    parser.add_argument('--yLog', default=False, type=float, help="Use if you want y-axis to be shown on a log-scale. Argument provided should be a float to add to the y values before calculating the log value.")
     parser.add_argument('--delim', default="\t", help="Delimiter used in the data file.")
     parser.add_argument('--xLab', help="String for x-label. If not provided, --xHead is used.")
     parser.add_argument('--yLab', help="String for y-label. If not provided, --yHead is used.")
@@ -38,6 +39,9 @@ def main():
     parser.add_argument('--exclude', help="Header,Value pairs used to indicate a subset of rows to exclude.", nargs='*')
     parser.add_argument('--xLegend', default=0.1, type=float, help="x-coordinate to use for color legend.")
     parser.add_argument('--yLegend', default='top', help="Indicate whether you want the legend at the 'top' or 'bottom' of the plot.")
+    parser.add_argument('--xeqy', default=False, action="store_true", help="Use if you want an x=y line included in the plot.")
+    parser.add_argument('--markerSize', default=10, type=int, help="Size of marker used in plot.")
+    parser.add_argument('--alpha', default=0.6, type=float, help="Alpha (transparency) value to use in plot.")
 
     parser.add_argument('-b', '--batch',  help='An alternative way to provide input/output files that allows the generation of multiple plots with a single command. File provided should be tab-delimited, one line per output plot: xHeader, yHeader, outfile, colorHeader. Colorheader column is optional. [None, OPT]')
 
@@ -48,25 +52,30 @@ def main():
         mapF, kHead, vHead = opts.cMap.split(",")
         opts.cMap = io.fileDictHeader(mapF, kHead, vHead)
     
+    #Read in data file 
+    dataD = io.fileDictFull(opts.data, opts.delim)
+
+
     if opts.batch:
         with open(opts.batch) as fin:
             for line in fin:
 
-                #Read in data file 
-                dataD = io.fileDictFull(opts.data, opts.delim)
-
                 cols = line.rstrip("\n").split("\t")
+                
                 opts.xHead = cols[0]
                 opts.yHead = cols[1]
                 opts.outfile = cols[2]
                 if len(cols)==4:
                     opts.color = cols[3]
-                    
+                
+                # Make a subset dict that will be manipulated
+                subD = {k:dataD[k] for k in opts.xHead.split(",") + opts.yHead.split(",")}
+                
                 # Make sure data columns are formatted properly 
-                prepData(dataD, opts)
+                prepData(subD, opts)
 
                 #Generate plot
-                scatter(dataD, opts)
+                scatter(subD, opts)
                 
                 #Reset Labels
                 opts.xLab=None
@@ -74,8 +83,6 @@ def main():
 
     
     else:
-        #Read in data file 
-        dataD = io.fileDictFull(opts.data, opts.delim)
         
         if opts.include:
             for each in opts.include:
@@ -117,14 +124,14 @@ def prepData(dataD, opts):
     yHeadList = opts.yHead.split(",")
     for each in yHeadList:
         if opts.yLog:
-            dataD[each] = [np.log10(float(a)) if a else None for a in dataD[each]]
+            dataD[each] = [np.log10(float(a)+opts.yLog) if a else None for a in dataD[each]]
         else:
             dataD[each] = [float(a) if a else None for a in dataD[each]]
 
     xHeadList = opts.xHead.split(",")
     for each in xHeadList:
         if opts.xLog:
-            dataD[each] = [np.log10(float(a))  if a else None for a in dataD[each]]
+            dataD[each] = [np.log10(float(a)+opts.xLog)  if a else None for a in dataD[each]]
         else:
             dataD[each] = [float(a) if a else None for a in dataD[each]]
 
@@ -152,13 +159,13 @@ def scatter(dd, opts):
             for i,c in enumerate(sorted(list(set(opts.cMap.values())))):
                 colD[c] = colPalette[i]
 
-            sPoints = ax.scatter(dd[opts.xHead], dd[opts.yHead], c=[colD[opts.cMap[a]] for a in dd[opts.color]], alpha=0.6)
+            sPoints = ax.scatter(dd[opts.xHead], dd[opts.yHead], c=[colD[opts.cMap[a]] for a in dd[opts.color]], alpha=opts.alpha, s=opts.markerSize)
 
         else:
             for i,c in enumerate(list(set(dd[opts.color]))):
                 colD[c] = colPalette[i]
         
-            sPoints = ax.scatter(dd[opts.xHead], dd[opts.yHead], c=[colD[a] for a in dd[opts.color]], alpha=0.6)
+            sPoints = ax.scatter(dd[opts.xHead], dd[opts.yHead], c=[colD[a] for a in dd[opts.color]], alpha=opts.alpha, s=opts.markerSize)
 
         #Make legend
         count=0
@@ -170,8 +177,12 @@ def scatter(dd, opts):
                 ax.text(opts.xLegend, count, n, color=c, transform=ax.transAxes, fontsize=15)
 
     else:
-        ax.scatter(dd[opts.xHead], dd[opts.yHead], alpha=0.6)
+        ax.scatter(dd[opts.xHead], dd[opts.yHead], alpha=opts.alpha, s=opts.markerSize)
     
+    if opts.xeqy:
+        thelower = max([min(dd[opts.xHead]), min(dd[opts.yHead])])
+        thehigher = min([max(dd[opts.xHead]), max(dd[opts.yHead])])
+        ax.plot([thelower, thehigher], [thelower, thehigher], ls=":", c="k")
     
     ax.set_xlabel(opts.xLab, fontsize=20)
     ax.set_ylabel(opts.yLab, fontsize=20)
