@@ -10,6 +10,7 @@ import argparse
 #import seaborn as sns
 import numpy as np
 import inout as io
+import itertools as it
 
 # This script is used for generating scatterplots using matplotlib
 
@@ -43,7 +44,8 @@ def main():
     parser.add_argument('--markerSize', default=10, type=int, help="Size of marker used in plot.")
     parser.add_argument('--alpha', default=0.6, type=float, help="Alpha (transparency) value to use in plot.")
 
-    parser.add_argument('-b', '--batch',  help='An alternative way to provide input/output files that allows the generation of multiple plots with a single command. File provided should be tab-delimited, one line per output plot: xHeader, yHeader, outfile, colorHeader. Colorheader column is optional. [None, OPT]')
+    parser.add_argument('-b', '--batch',  help='An alternative way to provide input/output files that allows the generation of multiple plots with a single command. File provided should be tab-delimited, one line per output plot: xHeader, yHeader, outfile, colorHeader. Colorheader column is optional.')
+    parser.add_argument('-a', '--allByAll',  help='Optional way to specify xHead and yHead. Should be a list of column headers. A plot will be generated for all pairwise comparisons of the columns in this file. Output names will be generated based on the column name.')
 
     opts = parser.parse_args()
 
@@ -81,6 +83,28 @@ def main():
                 opts.xLab=None
                 opts.yLab=None
 
+    elif opts.allByAll:
+        heads = io.fileList(opts.allByAll, header=False)
+        for h1, h2 in it.combinations(heads, 2):
+
+                opts.xHead = h1
+                opts.yHead = h2
+                opts.outfile = "%s_%s.png" % (h1, h2)
+                
+                # Make a subset dict that will be manipulated
+                subD = {k:dataD[k] for k in opts.xHead.split(",") + opts.yHead.split(",")}
+                
+                # Make sure data columns are formatted properly 
+                prepData(subD, opts)
+
+                #Generate plot
+                scatter(subD, opts)
+                
+                #Reset Labels
+                opts.xLab=None
+                opts.yLab=None
+
+            
     
     else:
         
