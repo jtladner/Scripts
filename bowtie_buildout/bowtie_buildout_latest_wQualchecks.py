@@ -324,7 +324,7 @@ def make_gen_info_file(reference):
     fout.close()
     return new_filename, chrom_lengths
 
-		
+        
 def cov_bed(bamfile, gen_info_file):
     coverage_file = '%s.coverage' % ("".join(bamfile.split('.')[:-1]))
     cmd = 'genomeCoverageBed -ibam %s -d -g %s >%s' % (bamfile, gen_info_file, coverage_file)
@@ -333,7 +333,7 @@ def cov_bed(bamfile, gen_info_file):
     return coverage_file
 
 def find_missing_regions(cov_files, chrom_lengths):
-    md={}						#Will contain info for regions with zero coverage
+    md={}                        #Will contain info for regions with zero coverage
     #Steps through each organism's coverage file
     for org in cov_files:
         md[org] = {}
@@ -349,8 +349,8 @@ def find_missing_regions(cov_files, chrom_lengths):
                     md[org][chrom] = md[org].get(chrom, [])
                     md[org][chrom].append(region)
                     region=[0,0]
-				
-				
+                
+                
             #This is when you hit the Nth no coverage base in a row
             elif cov == '0' and region[0] != 0: 
                 region[1] = int(pos)
@@ -358,7 +358,7 @@ def find_missing_regions(cov_files, chrom_lengths):
                     md[org][chrom] = md[org].get(chrom, [])
                     md[org][chrom].append(region)
                     region=[0,0]
-			
+            
             #This is when you have hit the end of a no coverage region
             elif cov != '0' and region[0] != 0:
                 md[org][chrom] = md[org].get(chrom, [])
@@ -414,22 +414,22 @@ def extract_cov_info(file):
 
 # Extracts data from a fasta sequence file. Returns two lists, the first holds the names of the seqs (
 def read_fasta_lists(file):
-        fin = open(file, 'r')
-	count=0
-	names=[]
-	seqs=[]
-	seq=''
-	for line in fin:
-		line=line.strip()
-		if line and line[0] == '>':                #indicates the name of the sequence
-			count+=1
-			names.append(line[1:])
-			if count>1:
-				seqs.append(seq)
-			seq=''
-		else: seq +=line
-	seqs.append(seq)
-	return names, seqs
+    fin = open(file, 'r')
+    count=0
+    names=[]
+    seqs=[]
+    seq=''
+    for line in fin:
+        line=line.strip()
+        if line and line[0] == '>':                #indicates the name of the sequence
+            count+=1
+            names.append(line[1:])
+            if count>1:
+                seqs.append(seq)
+            seq=''
+        else: seq +=line
+    seqs.append(seq)
+    return names, seqs
 
 
 ###******************End of coverage section*******************
@@ -446,16 +446,16 @@ def join_cap3_contigs(new_cons_fasta):
     return cap3_cons_name
 
 def add_random(string_list, num_extra=6):
-	import random, string
-	new_list=[]
-	for each in string_list:
-		rand_bit='_'
-		counter=0
-		while counter < num_extra:
-			counter+=1
-			rand_bit+=random.choice(string.letters + string.digits)
-		new_list.append(each + rand_bit)
-	return new_list
+    import random, string
+    new_list=[]
+    for each in string_list:
+        rand_bit='_'
+        counter=0
+        while counter < num_extra:
+            counter+=1
+            rand_bit+=random.choice(string.letters + string.digits)
+        new_list.append(each + rand_bit)
+    return new_list
 
 def cap3_improved(new_cons_fasta):
     old_names, old_seqs = read_fasta_lists_simple_names(new_cons_fasta)
@@ -598,15 +598,15 @@ def sam_just_mapped(samfile):
     new_name='%s_onlymapped.sam' % '.'.join(samfile.split('.')[:-1])
     new = open(new_name, 'w')
     for line in sam:
-    	if line[0] != '@':
+        if line[0] != '@':
             cols=line.split()
             if not int(cols[1]) & 0x4:new.write(line) 
         else: new.write(line)
     sam.close()
     new.close()
     return new_name
-    	
-###----------End of samtools functions----------------------------------------		
+        
+###----------End of samtools functions----------------------------------------        
 
 
 ###-----------Start of functions used in making consensus from pileup-----------
@@ -631,13 +631,13 @@ def make_consensus(pileup, ref, opts):
     #Open file to append info about changes that are made
     change_log='change_log.txt'
     fout=open(change_log, 'a')
-    num_changes=0					#Will keep track of the number of changes that are made to the consensus
+    num_changes=0                    #Will keep track of the number of changes that are made to the consensus
     
     #Will hold positions that have been deleted and therefore the pileup positions for these will be skipped
     to_ignore={}
         
     fin=open(pileup, 'r')
-    current_chrom=''					#Need this so that we can reset base_base each time a new contig is encountered
+    current_chrom=''                    #Need this so that we can reset base_base each time a new contig is encountered
     for line in fin:
         chrom, pos, bases, indels, ends, quals = pileup_info(line)
         #New step that removes info for bases with quality lower than the specified minimum threshold
@@ -645,9 +645,9 @@ def make_consensus(pileup, ref, opts):
         good_bases, good_quals = quality_filter(bases, quals, opts)
         
         if chrom != current_chrom:
-            base_base=-1				#This value changes with insertions and deletions to keep the position to index relationship correct, it starts at -1 b/c pos is 1-based and indices are 0-based
+            base_base=-1                #This value changes with insertions and deletions to keep the position to index relationship correct, it starts at -1 b/c pos is 1-based and indices are 0-based
             current_chrom=chrom
-            to_ignore={}		#!!!! I think I need to reset to_ignore!!!! This has been added in *_basequaly.py version
+            to_ignore={}        #!!!! I think I need to reset to_ignore!!!! This has been added in *_basequaly.py version
             
         #Make sure this position has not been deleted
         if pos not in to_ignore and len(good_bases)>0:
@@ -676,7 +676,7 @@ def make_consensus(pileup, ref, opts):
                             num_changes+=1
                             fout.write('%s\t%d\t-\t%s\t%.2f\t%d\n' % (chrom, pos, each, indels['insert'].count(each)/(len(bases)-ends), len(bases)-ends))
                             ref_dict[chrom].insert((pos+base_base+1), each)
-                            base_base+=1							#Need to increment this because all subsequent indices have been shifted forwards
+                            base_base+=1                            #Need to increment this because all subsequent indices have been shifted forwards
                             break    
                 #If some reads show deletions after this base
                 elif 'delete' in indels:
@@ -689,7 +689,7 @@ def make_consensus(pileup, ref, opts):
                                 pos_to_ignore+=1
                                 to_ignore[pos_to_ignore]=''
                                 del(ref_dict[chrom][pos+base_base+1])
-                                base_base-=1							#Need to decrement this because all subsequent indices have been shifted backwards
+                                base_base-=1                            #Need to decrement this because all subsequent indices have been shifted backwards
                             break
     
     #Turn each seq into a string
@@ -728,14 +728,14 @@ def parse_bases(raw_bases, num_reads):
     bases=bases.replace('$', '')
     
     #Get info about indels following this position and remove this info form bases
-    indels={}		#This line is needed to ensure an empty dict named indels for strings without indel present
+    indels={}        #This line is needed to ensure an empty dict named indels for strings without indel present
     if '-' in bases or '+' in bases:
         bases, indels = indel_info(bases, indels)
     
     if len(bases)==num_reads: return bases, indels, ends
     else:
         print 'Problem!!! Exp bases: %d, Output bases: %d, Input str: %s, Output str: %s' % (num_reads, len(bases), raw_bases, bases)
-        return #This will cause script to stop because three arguments are expected to be returned	
+        return #This will cause script to stop because three arguments are expected to be returned    
 
 def remove_beg_info(bases):
     while '^' in bases:
@@ -780,7 +780,7 @@ def characterize_indel(bases, type_char, ind_info):
 def read_fasta_lists_simple_names(file):
     fin = open(file, 'r')
     count=0
-	
+    
     names=[]
     seqs=[]
     seq=''
@@ -794,7 +794,7 @@ def read_fasta_lists_simple_names(file):
             seq=''
         else: seq +=line
     seqs.append(seq)
-	
+    
     return names, seqs
 
 
