@@ -31,6 +31,7 @@ def main():
 
     parser.add_argument('--hue',  help='Header in data file for "hue", or subcategories for x-axis.')
     parser.add_argument('--logY', default=False, action="store_true", help="Use this option if you want the y-axis to be coversted to log scale. If some of the values are <=0, an integer will be added to all y-axis values prior to conversion")
+    parser.add_argument('--log2', default=False, action="store_true", help="Use this option if you want the y-axis to be coversted to log2 scale, instead of log10 scale, which is the default when using --logY.")
     parser.add_argument('--delim', default="\t", help="Delimiter used in the data file.")
     parser.add_argument('--xLab', help="String for x-label. If not provided, --xHead is used.")
     parser.add_argument('--yLab', help="String for y-label. If not provided, --yHead is used.")
@@ -57,7 +58,10 @@ def main():
             while opts.addInt + minY <=0:
                 opts.addInt+=1
             dataD[opts.yHead] = [a+opts.addInt for a in dataD[opts.yHead]]
-        dataD[opts.yHead] = [np.log10(a) for a in dataD[opts.yHead]]
+        if opts.log2:
+            dataD[opts.yHead] = [np.log2(a) for a in dataD[opts.yHead]]
+        else:
+            dataD[opts.yHead] = [np.log10(a) for a in dataD[opts.yHead]]
     
     df = pd.DataFrame(dataD)
     
@@ -87,12 +91,12 @@ def catBoxplot(df, opts, colorHead=None, xLab=None, yLab=None, out=None):
     if colorHead:
         sns.boxplot(x=opts.xHead, y=opts.yHead, hue=colorHead, data=df, ax=ax, fliersize=0, zorder=2)
         if not opts.noStripPlot:
-            sns.stripplot(x=opts.xHead, y=opts.yHead, hue=colorHead, data=df, jitter=True, dodge=True, linewidth=0.5, ax=ax, zorder=3)
+            sns.stripplot(x=opts.xHead, y=opts.yHead, hue=colorHead, data=df, jitter=True, linewidth=0.5, ax=ax, zorder=3)
     
     else:
         sns.boxplot(x=opts.xHead, y=opts.yHead, data=df, ax=ax, fliersize=0, zorder=2)
         if not opts.noStripPlot:
-            sns.stripplot(x=opts.xHead, y=opts.yHead, data=df, jitter=True, dodge=True, linewidth=0.5, ax=ax, zorder=3)
+            sns.stripplot(x=opts.xHead, y=opts.yHead, data=df, jitter=True, linewidth=0.5, ax=ax, zorder=3)
     
     if opts.axhline:
         ax.axhline(float(opts.axhline), 0, 1, zorder=1, ls='dotted', c='k')
@@ -102,9 +106,15 @@ def catBoxplot(df, opts, colorHead=None, xLab=None, yLab=None, out=None):
     ax.set_xlabel(xLab, fontsize=20)
     if opts.logY:
         if opts.addInt:
-            ax.set_ylabel("log10(%s+%d)" % (yLab, opts.addInt), fontsize=20)
+            if opts.log2:
+                ax.set_ylabel("log2(%s+%d)" % (yLab, opts.addInt), fontsize=20)
+            else:
+                ax.set_ylabel("log10(%s+%d)" % (yLab, opts.addInt), fontsize=20)
         else:
-            ax.set_ylabel("log10(%s)" % yLab, fontsize=20)
+            if opts.log2:
+                ax.set_ylabel("log2(%s)" % yLab, fontsize=20)
+            else:
+                ax.set_ylabel("log10(%s)" % yLab, fontsize=20)
     else:
         ax.set_ylabel(yLab, fontsize=20)
     ax.tick_params(labelsize=15)
