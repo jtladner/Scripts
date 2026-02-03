@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -91,12 +91,12 @@ def catBoxplot(df, opts, colorHead=None, xLab=None, yLab=None, out=None):
     if colorHead:
         sns.boxplot(x=opts.xHead, y=opts.yHead, hue=colorHead, data=df, ax=ax, fliersize=0, zorder=2)
         if not opts.noStripPlot:
-            sns.stripplot(x=opts.xHead, y=opts.yHead, hue=colorHead, data=df, jitter=True, linewidth=0.5, ax=ax, zorder=3)
+            sns.stripplot(x=opts.xHead, y=opts.yHead, hue=colorHead, data=df, jitter=True, linewidth=0.5, ax=ax, zorder=3, dodge=True)
     
     else:
         sns.boxplot(x=opts.xHead, y=opts.yHead, data=df, ax=ax, fliersize=0, zorder=2)
         if not opts.noStripPlot:
-            sns.stripplot(x=opts.xHead, y=opts.yHead, data=df, jitter=True, linewidth=0.5, ax=ax, zorder=3)
+            sns.stripplot(x=opts.xHead, y=opts.yHead, data=df, jitter=True, linewidth=0.5, ax=ax, zorder=3, dodge=True)
     
     if opts.axhline:
         ax.axhline(float(opts.axhline), 0, 1, zorder=1, ls='dotted', c='k')
