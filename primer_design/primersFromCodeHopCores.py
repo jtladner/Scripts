@@ -29,6 +29,7 @@ def main():
 	parser.add_argument('-m', '--meltTemp', default=65, type=float, help='Target melting temperature for full primer, core + clamp.')
 	parser.add_argument('-c', '--minClamp', default=8, type=int, help='Minimum clamp length.')
 	parser.add_argument('--simpleConsensus', default=False, action="store_true", help='Use this flag if you want to use a simple consensus approach for generating the clamp. If you do not use this flag, the program will explore a variety of clamps, searching for those that best satisfy the primer design criteria.')
+	parser.add_argument('-v', '--verbose', default=False, action="store_true", help='Use this flag if you want progress info to be printed to the screen while the script is running.')
 
 	# Arguments below here will NOT be used if '--simpleConsensus' flag is used.
 	parser.add_argument('--maxMeltTemp', default=70, type=float, help='Target melting temperature for full primer, core + clamp.')
@@ -208,8 +209,12 @@ def designClamps(coreSeq, i, direction, fD, args):
 	
 	if direction=="F":
 		availD = {n:s[:i].replace("-", "") for n,s in fD.items()}
+		if args.verbose:
+			print("Processing forward primer.")
 	elif direction=="R":
 		availD = {n:st.revCompDNA(s[i:].replace("-", "")) for n,s in fD.items()}
+		if args.verbose:
+			print("Processing reverse primer.")
 	else:
 		print(f"Direction must be either F or R, {direction} is NOT a valid option.")
 		return None
@@ -224,19 +229,25 @@ def designClamps(coreSeq, i, direction, fD, args):
 			toAddD = {n:s[-newMax:] for n,s in availD.items()}
 			toAddS_ambig = st.consensus_minProp(list(toAddD.values()), args.minProp)
 			toAddSL = st.expand_degenerate_seq(toAddS_ambig)
-		#print(f"Max clamp length adjusted to {newMax}")
 		logD["maxLen"] = newMax
+		if args.verbose:
+			print(f"Max clamp length adjusted to {newMax}")
 	else:
 		logD["maxLen"] = args.maxClamp
 	
-#	print(f"Considering {len(toAddSL)} clamp sequences with max clamp length.")
+	if args.verbose:
+		print(f"Considering {len(toAddSL)} clamp sequences with max clamp length.")
+
 	for cls in toAddSL[:]:
 		while len(cls)>args.minClamp:
 			cls=cls[1:]
 			toAddSL.append(cls)
 	toAddSL = list(set(toAddSL))
-# 	print(f"Considering {len(toAddSL)} clamp sequences. Avg Length = {avglen(toAddSL)}.")
 	logD["start"] = len(toAddSL)
+
+	if args.verbose:
+		print(f"Considering {len(toAddSL)} clamp sequences. Avg Length = {avglen(toAddSL)}.")
+
 	
 	
 	# GC content filter
@@ -248,7 +259,9 @@ def designClamps(coreSeq, i, direction, fD, args):
 	else:
 		toAddSL = passGC[:]
 		logD["gc"] = len(toAddSL)
-# 	print(f"{len(toAddSL)} sequences within GC target range. Avg Length = {avglen(toAddSL)}.")
+
+	if args.verbose:
+		print(f"{len(toAddSL)} sequences within GC target range. Avg Length = {avglen(toAddSL)}.")
 
 	# Tm filter
 	primerL = [cl+coreSeq for cl in toAddSL]
@@ -259,7 +272,9 @@ def designClamps(coreSeq, i, direction, fD, args):
 	else:
 		toAddSL = passTM[:]
 		logD["tm"] = len(toAddSL)
-# 	print(f"{len(toAddSL)} sequences passed Tm check. Avg Length = {avglen(toAddSL)}.")
+
+	if args.verbose:
+		print(f"{len(toAddSL)} sequences passed Tm check. Avg Length = {avglen(toAddSL)}.")
 	
 	# Hairpin filter
 	primerL = [cl+coreSeq for cl in toAddSL]
@@ -270,7 +285,9 @@ def designClamps(coreSeq, i, direction, fD, args):
 	else:
 		toAddSL = passHP[:]
 		logD["hairpin"] = len(toAddSL)
-# 	print(f"{len(toAddSL)} sequences passed Hairpin check. Avg Length = {avglen(toAddSL)}.")
+
+	if args.verbose:
+		print(f"{len(toAddSL)} sequences passed Hairpin check. Avg Length = {avglen(toAddSL)}.")
 	
 	# Homodimer filter
 	primerL = [cl+coreSeq for cl in toAddSL]
@@ -281,7 +298,9 @@ def designClamps(coreSeq, i, direction, fD, args):
 	else:
 		toAddSL = passHM[:]
 		logD["homodimer"] = len(toAddSL)
-# 	print(f"{len(toAddSL)} sequences passed Homodimer check. Avg Length = {avglen(toAddSL)}.")
+
+	if args.verbose:
+		print(f"{len(toAddSL)} sequences passed Homodimer check. Avg Length = {avglen(toAddSL)}.")
 	
 	# For filtered clamp options, count the number of mismatches between the clamp and each sequence
 	maxMM=defaultdict(list)
@@ -313,9 +332,25 @@ def designClamps(coreSeq, i, direction, fD, args):
 		needed=args.max2report-len(output)
 		while len(extra)<needed:
 			thisMax+=1
-			for k,v in maxMM.items():
-				if k<=thisMax and k != minMaxMM:
-					extra+=v
+			
+			# No need to run through the whole dictionary if the next number of mismatches isn't present as a key
+			if thisMax in maxMM:
+				thisExtra=[]
+				for k,v in maxMM.items():
+					if k<=thisMax and k != minMaxMM:
+						thisExtra+=v
+				extra = thisExtra[::]
+
+			else:
+				more=sum([1 for k in maxMM if k>thisMax])
+				# Need this to terminate the loop, if there are no additional sequences available
+				if more==0:
+					break
+				else:
+					continue
+
+
+			
 		if len(extra)>needed:
 			sortedSeqs = sorted([(ammD[cs],cs) for cs in extra])
 			extra = [x[1] for x in sortedSeqs[:needed]]
