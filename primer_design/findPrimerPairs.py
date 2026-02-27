@@ -164,9 +164,9 @@ def main():
 				pD["Score"] = score
 			
 			# Sort by score and output the top (lowest) scoring pairs 
-			sortedL = sorted([(pD["Score"],pD) for pD in infoDL])
-			for s,pD in sortedL[:args.maxPerAmp]:
-				outStr = "\t".join([str(pD[c]) for c in outCats])
+			sortedL = sorted([(pD["Score"], pD["F_AvgClampMis"], pD["R_AvgClampMis"],i) for i, pD in enumerate(infoDL)])
+			for each in sortedL[:args.maxPerAmp]:
+				outStr = "\t".join([str(infoDL[each[-1]][c]) for c in outCats])
 				fout.write(f"{outStr}\n")
 
 
