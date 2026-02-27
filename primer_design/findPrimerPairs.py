@@ -8,6 +8,8 @@ import seqtools as st	   # Available at: https://github.com/jtladner/Modules
 import inout as io		  # Available at: https://github.com/jtladner/Modules
 
 import numpy as np
+import itertools as it
+import scipy.stats as stats
 import pandas as pd
 from collections import defaultdict
 import primer3
@@ -26,22 +28,22 @@ def main():
 
 	# Optional arguments
 # 	parser.add_argument('-l', '--log', help='Name for log file about the filtering process. If not provided, a name will be constructed from the output file name.')
-	parser.add_argument('-m', '--minAmpLen', default=300, type=float, help='Minimum for average amplicon length, for a pair to be considered.')
-	parser.add_argument('-x', '--maxAmpLen', default=700, type=float, help='Maximum for average amplicon length, for a pair to be considered.')
+	parser.add_argument('-m', '--minAmpLen', default=300, type=float, help='Minimum for average amplicon length, for a pair to be considered. Amplicon length is calculated excluding the primers.')
+	parser.add_argument('-x', '--maxAmpLen', default=700, type=float, help='Maximum for average amplicon length, for a pair to be considered. Amplicon length is calculated excluding the primers.')
 	parser.add_argument('--meltTempDiff', default=5, type=float, help='Maximum average melt temp diff for forward and reverse primers.')
 	parser.add_argument('--structureThresh', default=45, type=float, help='Maximum threshold for heterodimer Tm.')
-	parser.add_argument('--max2report', default=5, type=int, help='Maximum number of primers to include in output, per input core.')
-	parser.add_argument('--minProp', default=0.2, type=float, help='Minimum proportion of base in reference sequences to be considered for clamp inclusion.')
-	parser.add_argument('--max2consider', default=100000, type=int, help='Maximum full length clamp sequences to consdier. --maxClamp will be dynamically adjusted to meet this amount.')
+	parser.add_argument('--maxPerAmp', default=10, type=int, help='Maximum number of primer pairs to report per amplicon. The top scoring pairs will be reported.')
+	parser.add_argument('--scoreCriteria', help='User can provide a tab-delim file with at least two columns: "Factor" and "Weight". Factor column is used to indicate which criteria from the output primer pair file should be used for scoring. Weight should be a floating point value indicating the relative weight to give each criteria. The higher the weight, the more important the factor will be indetermining the total score. If not specified, default criteria will be used.')
+	parser.add_argument('--applyStructureThresh_toAll', default=False, action="store_true", help='Use this flag is you want the structure threshold to be applied retrospectively to the hairpin and homodimer average values calculated previously. This allows the user to apply a stricter threshold, to limit the number of possible primer pairs.')
 	
-
 	args = parser.parse_args()
 
-	# Construct log file name, if not provided
-# 	if not args.log:
-# 		dirName = os.path.dirname(args.outName)
-# 		base_noExt = Path(args.outName).stem
-# 		args.log = f"{dirName}/{base_noExt}_Log.tsv"
+	# Read in scoring criteria, if provided
+	if args.scoreCriteria:
+		scoreCritD = io.fileDictHeader(args.scoreCriteria, "Factor", "Weight")
+	else:
+		scoreCritD = {"F_AvgClampMis":1, "R_AvgClampMis":1, "F_AvgHairpinTm":0.5, "R_AvgHairpinTm":0.5, "AvgTmDiff":0.25, "F_AvgHomoDimTm":0.25, "R_AvgHomoDimTm":0.25, "AvgHeterodimerTm":0.25}
+		print("Using default scoring criteria\n", scoreCritD)
 	
 	# Read in nucleotide alignment
 	fD = ft.read_fasta_dict(args.ntFasta)
@@ -54,263 +56,127 @@ def main():
 		if headName not in inDF.columns:
 			print(f"File provided with -i flag must contain a column labeled '{headName}'. Check your input file.")
 			return None
+		
+	# Forward primer dictionary
+	forPrimerD = defaultdict(list)
+	# Reverse primer dictionary
+	revPrimerD = defaultdict(list)
 	
-	# Open output file for writing and add header
-	fout = open(args.outName, "w")
-	fout.write("F_name\tR_name\tAvgAmpLength\tF_Degeneracy\tR_Degeneracy\tF_Start\tF_End\tR_Start\tR_End\tF_seq\tR_seq\tF_RevComp\tR_RevComp\tAvgHeterodimerTm\tMinHeterodimerTm\tMaxHeterodimerTm\tF_AvgCoreMis\t\tR_AvgCoreMis\tF_AvgClampMis\tR_AvgClampMis\tF_AvgTm\tR_AvgTm\tF_AvgHomoDimTm\tR_AvgHomoDimTm\tF_AvgHairpinTm\tR_AvgHairpinTm\n")
-
-	
-	# Step through each core sequence
+	# Step through each primer and collect info into two dicts, one for forward primers and one for reverse
 	for i,row in inDF.iterrows():
-		
-		# Check that you are finding matches to the provided core sequence at the provided location
-		# This is a good sanity check. Though, you won't necessarily see a perfect match to all sequences
-		coreSeq = row["Core"].upper()
-		if row["Direction"].strip().upper() == "FORWARD" or row["Direction"].strip().upper() == "F":
-			numMatched,coreMis = checkCoreMatches(coreSeq, {n:s[row["CoreStart"]-1:row["CoreEnd"]] for n,s in fD.items()})
-			i=row["CoreStart"]-1
-			allCores = st.expand_degenerate_seq(coreSeq)
-			direction="F"
-		elif row["Direction"].strip().upper() == "REVERSE" or row["Direction"].strip().upper() == "R":
-			revComp = st.revCompDNA(row["Core"])
-			numMatched,coreMis = checkCoreMatches(revComp, {n:s[row["CoreStart"]-1:row["CoreEnd"]] for n,s in fD.items()})
-			i=row["CoreEnd"]
-			allCores = st.expand_degenerate_seq(revComp)
-			direction="R"
-		
-		propMatched = numMatched/len(fD)
-		print(f"{numMatched}/{len(fD)} sequences perfectly match core: {row['Core'].upper()}")
-		
-		# Determine name to be used in outputs
-		if "Name" not in inDF.columns:
-			primerName = f"{st.translate(allCores[0])}-{direction}"
-		else:
-			primerName = row["Name"]
-		
-		
-		if args.simpleConsensus:
-			primerL, clampL, mismatchesL = designClamp(coreSeq, i, direction, fD, args.meltTemp, clampSize=args.minClamp)
-		else:
-			primerL, clampL, mismatchesL, logD = designClamps(coreSeq, i, direction, fD, args)
-			flog.write(f"{primerName}\t{propMatched:.3f}\t{logD['maxLen']}\t{logD['start']}\t{logD['gc']}\t{logD['tm']}\t{logD['hairpin']}\t{logD['homodimer']}\n")
-
-
-		
-		for num,primer in enumerate(primerL):
-			allPrimers = st.expand_degenerate_seq(primer)
-			tmL = [primer3.calc_tm(ps) for ps in allPrimers]
-			
-			if direction=="F":
-				start=row["CoreEnd"]-len(primer)+1
-				end=row["CoreEnd"]
-			else:
-				start=row["CoreStart"]
-				end=row["CoreStart"]+len(primer)-1
-			
-			# Calculate hairpin Tm
-			hpL = [primer3.calc_hairpin_tm(ps) for ps in allPrimers]
-			# Calculate homodimer Tm
-			hmL = [primer3.calc_homodimer_tm(ps) for ps in allPrimers]
-			
-			fout.write(f"{primerName}\t{len(primer)}\t{len(coreSeq)}\t{len(clampL[num])}\t{len(allPrimers)}\t{direction}\t{start}\t{end}\t{np.mean(hpL):.2f}\t{min(hpL):.2f}\t{max(hpL):.2f}\t{np.mean(hmL):.2f}\t{min(hmL):.2f}\t{max(hmL):.2f}\t{primer}\t{st.revCompDNA(primer)}\t{np.mean(tmL):.2f}\t{min(tmL):.2f}\t{max(tmL):.2f}\t{np.mean(coreMis):.2f}\t{min(coreMis):.2f}\t{max(coreMis):.2f}\t{np.mean(mismatchesL[num]):.2f}\t{min(mismatchesL[num])}\t{max(mismatchesL[num])}\n")
-
-	fout.close()
-	flog.close()
+		if row['Direction']=="F":
+			forPrimerD[(row['Name'],row['End'])].append(row)
+		elif row['Direction']=="R":
+			revPrimerD[(row['Name'], row['Start'])].append(row)
 	
+	# Initiate dictionary to save info for output
+	outD = defaultdict(list)
+	
+	# Step through each forward primer
+	for ftup, foptL in forPrimerD.items():
+		# Step through each forward primer
+		for rtup, roptL in revPrimerD.items():
+			
+			# Check whether average amplicon length fits specified range
+			ampStart = foptL[0]["End"]
+			ampEnd = roptL[0]["Start"]
+			ampSeqs = [s[ampStart-1:ampEnd].replace("-", "") for s in fD.values()]
+			ampLen = [len(s) for s in ampSeqs]
+			avgAmpLen = np.mean(ampLen)
+			if args.minAmpLen <= avgAmpLen <= args.maxAmpLen:
+				
+				for eachF in foptL:
+					if not args.applyStructureThresh_toAll or max([eachF["AvgHomoDimTm"], eachF["AvgHairpinTm"],]) <= args.structureThresh:
+						allPrimersF = st.expand_degenerate_seq(eachF["Sequence"])
+						for eachR in roptL:
+							if not args.applyStructureThresh_toAll or max([eachR["AvgHomoDimTm"], eachR["AvgHairpinTm"],]) <= args.structureThresh:
+								allPrimersR = st.expand_degenerate_seq(eachR["Sequence"])
+								hdL = []
+								for fs in allPrimersF:
+									hdL+=[primer3.calc_heterodimer_tm(fs, rs) for rs in allPrimersR]
+								if np.mean(hdL) < args.structureThresh:
+									avgTmDiff = abs(eachF['AvgTm']-eachR['AvgTm'])
+									if avgTmDiff <= args.meltTempDiff:
+										ampID = (ampStart, ampEnd)
+										outD[ampID].append({
+											"F_name":eachF['Name'], "R_name":eachR['Name'],
+											"AvgAmpLength":avgAmpLen, "AvgTmDiff":avgTmDiff,
+											"F_Length":eachF['Length'], "F_CoreLength":eachF['CoreLength'], "F_ClampLength":eachF['ClampLength'],
+											"R_Length":eachR['Length'], "R_CoreLength":eachR['CoreLength'], "R_ClampLength":eachR['ClampLength'],
+											"F_Degeneracy":eachF['Degeneracy'], "R_Degeneracy":eachR['Degeneracy'],
+											"F_Start":eachF['Start'], "F_End":eachF['End'],
+											"R_Start":eachR['Start'], "R_End":eachR['End'],
+											"F_seq":eachF['Sequence'], "R_seq":eachR['Sequence'],
+											"F_RevComp":eachF['RevComp'], "R_RevComp":eachR['RevComp'],
+											"AvgHeterodimerTm":np.mean(hdL), "MinHeterodimerTm":min(hdL), "MaxHeterodimerTm":max(hdL),
+											"F_AvgCoreMis":eachF['AvgCoreMis'], "R_AvgCoreMis":eachR['AvgCoreMis'],
+											"F_AvgClampMis":eachF['AvgClampMis'], "R_AvgClampMis":eachR['AvgClampMis'],
+											"F_AvgTm":eachF['AvgTm'], "R_AvgTm":eachR['AvgTm'],
+											"F_AvgHomoDimTm":eachF['AvgHomoDimTm'], "R_AvgHomoDimTm":eachR['AvgHomoDimTm'],
+											"F_AvgHairpinTm":eachF['AvgHairpinTm'], "R_AvgHairpinTm":eachR['AvgHairpinTm']
+										})
+
+	# Open output file for writing primer pair details and add header
+	fout = open(f"{args.outName}_primerPairs.tsv", "w")
+	outCats = ["F_name", "R_name", "Score", "F_AvgClampMis", "R_AvgClampMis", "F_AvgCoreMis", "R_AvgCoreMis", "F_AvgHomoDimTm", "R_AvgHomoDimTm", "F_AvgHairpinTm", "R_AvgHairpinTm", "AvgTmDiff", "AvgHeterodimerTm", "AvgAmpLength", "F_Degeneracy", "R_Degeneracy", "F_Length", "F_CoreLength", "F_ClampLength", "R_Length", "R_CoreLength", "R_ClampLength", "F_Start", "F_End", "R_Start", "R_End", "F_seq", "R_seq", "F_RevComp", "R_RevComp", "F_AvgTm", "R_AvgTm"]
+	outCatsStr = "\t".join(outCats)
+	fout.write(f"{outCatsStr}\n")
+
+	# Open output file for writing amplicon details and add header
+	fout_amp = open(f"{args.outName}_amplicons.tsv", "w")
+	outAmpCats = ["F_name", "R_name", "Start", "End", "AvgAmpLength", "AvgPercID", "F_AvgCoreMis", "R_AvgCoreMis", "F_Degeneracy", "R_Degeneracy", "F_CoreLength", "R_CoreLength"]
+	outAmpCatsStr = "\t".join(outAmpCats)
+	fout_amp.write(f"{outAmpCatsStr}\n")
+
+
+	# When multiple primer pairs were found per amplicon, generate relative scores based to prioritize among them
+	for pairID, infoDL in outD.items():
+		
+		# Write out summary info for target amplicon (a given pair of F and R cores)
+		aD = {c:infoDL[0][c] for c in outAmpCats if c in infoDL[0]}
+		aD["Start"] = infoDL[0]["F_End"]
+		aD["End"] = infoDL[0]["R_Start"]
+		ampSeqs = [s[aD["Start"]-1:aD["End"]] for s in fD.values()]
+		percID_L = []
+		for s1,s2 in it.combinations(ampSeqs, 2):
+			percID_L.append(st.percID_nt(s1, s2))
+		aD["AvgPercID"] = np.mean(percID_L)
+		outAmpStr = "\t".join([str(aD[c]) for c in outAmpCats])
+		fout_amp.write(f"{outAmpStr}\n")
+		
+		
+		if len(infoDL)>1:
+			percD={}
+			for crit in scoreCritD:
+				percD[crit] = {}
+				critL = [d[crit] for d in infoDL]
+				for val in sorted(list(set(critL))):
+#					percD[crit][val] = stats.percentileofscore(critL, val)
+					if len(set(critL)) == 1:
+						percD[crit][val] = 0
+					else:
+						percD[crit][val] = (val-min(critL))/(max(critL)-min(critL))
+			
+			for pD in infoDL:
+				score=0
+				for crit, vD in percD.items():
+					score += vD[pD[crit]] * scoreCritD[crit]
+				pD["Score"] = score
+			
+			# Sort by score and output the top (lowest) scoring pairs 
+			sortedL = sorted([(pD["Score"],pD) for pD in infoDL])
+			for s,pD in sortedL[:args.maxPerAmp]:
+				outStr = "\t".join([str(pD[c]) for c in outCats])
+				fout.write(f"{outStr}\n")
+
+
+		else:
+			for pD in infoDL:
+				infoDL[i]["Score"] = score
+				outStr = "\t".join([str(pD[c]) for c in outCats])
+				fout.write(f"{outStr}\n")
+
 #####-------------------->>>
-
-def checkCoreMatches(coreSeq, fD):
-	expandedSeqs = {k:"" for k in st.expand_degenerate_seq(coreSeq)}
-	mismatches=[]
-	perfects=0
-	for s in fD.values():
-		if s in expandedSeqs:
-			mismatches.append(0)
-			perfects+=1
-		else:
-			l=[]
-			for every in expandedSeqs:
-				l.append(sum([1 for i in range(len(every)) if s[i] != every[i]]))
-			mismatches.append(min(l))
-	
-	return perfects, mismatches
-
-def avgTm(ambigSeq):
-	tmL = [primer3.calc_tm(ps) for ps in st.expand_degenerate_seq(ambigSeq)]
-	return np.mean(tmL)
-
-def avgGC(ambigSeq):
-	gcL = [st.calcGC(ps) for ps in st.expand_degenerate_seq(ambigSeq)]
-	return np.mean(gcL)
-
-def maxHairpin(ambigSeq):
-	hpL = [primer3.calc_hairpin_tm(ps) for ps in st.expand_degenerate_seq(ambigSeq)]
-	return max(hpL)
-
-def maxHomodimer(ambigSeq):
-	hmL = [primer3.calc_homodimer_tm(ps) for ps in st.expand_degenerate_seq(ambigSeq)]
-	return max(hmL)
-
-
-# clampSize provided to function is just the starting size. Final size will be determined by target Tm
-# Just using a simple consensus approach
-def designClamp(coreSeq, i, direction, fD, meltTemp, clampSize=10):
-	if direction=="F":
-		availD = {n:s[:i].replace("-", "") for n,s in fD.items()}
-	elif direction=="R":
-		availD = {n:st.revCompDNA(s[i:].replace("-", "")) for n,s in fD.items()}
-	else:
-		print(f"Direction must be either F or R, {direction} is NOT a valid option.")
-		return None
-
-	toAddD = {n:s[-clampSize:] for n,s in availD.items()}
-	toAddS = st.consensus(list(toAddD.values()), noAmbig=True)
-	primer = toAddS+coreSeq
-	while avgTm(primer)<meltTemp:
-		prevLen = len(primer)
-		clampSize+=1
-		toAddD = {n:s[-clampSize:] for n,s in availD.items()}
-		toAddS = st.consensus(list(toAddD.values()), noAmbig=True)
-		primer = toAddS+coreSeq
-		if not len(primer)>prevLen:
-			print("Not enough clamp bases available to meeting melt temp threshold.")
-			break
-	
-	# For final clamp, count the number of mismatches between the clamp and each sequence
-	mismatches=[]
-	for n,s in toAddD.items():
-		mis = sum([1 for i in range(len(toAddS)) if s[i] != toAddS[i]])
-		mismatches.append(mis)
-	
-	return [primer], [toAddS], [mismatches]
-
-# This function will generate and consider multiple clamps, attempting to select one with optimal characteristics
-def designClamps(coreSeq, i, direction, fD, args):
-	logD = {k:0 for k in ["maxLen", "start", "gc", "tm", "hairpin", "homodimer"]}
-	
-	if direction=="F":
-		availD = {n:s[:i].replace("-", "") for n,s in fD.items()}
-	elif direction=="R":
-		availD = {n:st.revCompDNA(s[i:].replace("-", "")) for n,s in fD.items()}
-	else:
-		print(f"Direction must be either F or R, {direction} is NOT a valid option.")
-		return None
-
-	toAddD = {n:s[-args.maxClamp:] for n,s in availD.items()}
-	toAddS_ambig = st.consensus_minProp(list(toAddD.values()), args.minProp)
-	toAddSL = st.expand_degenerate_seq(toAddS_ambig)
-	if len(toAddSL)>args.max2consider:
-		newMax = args.maxClamp
-		while len(toAddSL)>args.max2consider:
-			newMax-=1
-			toAddD = {n:s[-newMax:] for n,s in availD.items()}
-			toAddS_ambig = st.consensus_minProp(list(toAddD.values()), args.minProp)
-			toAddSL = st.expand_degenerate_seq(toAddS_ambig)
-		#print(f"Max clamp length adjusted to {newMax}")
-		logD["maxLen"] = newMax
-	else:
-		logD["maxLen"] = args.maxClamp
-	
-#	print(f"Considering {len(toAddSL)} clamp sequences with max clamp length.")
-	for cls in toAddSL[:]:
-		while len(cls)>args.minClamp:
-			cls=cls[1:]
-			toAddSL.append(cls)
-	toAddSL = list(set(toAddSL))
-# 	print(f"Considering {len(toAddSL)} clamp sequences. Avg Length = {avglen(toAddSL)}.")
-	logD["start"] = len(toAddSL)
-	
-	
-	# GC content filter
-	primerL = [cl+coreSeq for cl in toAddSL]
-	gcL = [avgGC(ps) for ps in primerL]
-	passGC = [toAddSL[i] for i,gc in enumerate(gcL) if args.gcMin<=gc<=args.gcMax]
-	if (len(passGC)/len(toAddSL))<0.05:
-		print(f"Skipping GC filter because losing more than 95% of clamp options. Average clamp GC content = {np.mean(gcL)}.")
-	else:
-		toAddSL = passGC[:]
-		logD["gc"] = len(toAddSL)
-# 	print(f"{len(toAddSL)} sequences within GC target range. Avg Length = {avglen(toAddSL)}.")
-
-	# Tm filter
-	primerL = [cl+coreSeq for cl in toAddSL]
-	tmL = [avgTm(ps) for ps in primerL]
-	passTM = [toAddSL[i] for i,tm in enumerate(tmL) if args.meltTemp<=tm<=args.maxMeltTemp]
-	if len(passTM)==0:
-		print(f"Skipping Tm filter because The number of clamp sequences because none of the options meet specified melting temperature range. You may want to consider adjusting your clamp size or target melting temperature.")
-	else:
-		toAddSL = passTM[:]
-		logD["tm"] = len(toAddSL)
-# 	print(f"{len(toAddSL)} sequences passed Tm check. Avg Length = {avglen(toAddSL)}.")
-	
-	# Hairpin filter
-	primerL = [cl+coreSeq for cl in toAddSL]
-	hpL = [maxHairpin(ps) for ps in primerL]
-	passHP = [toAddSL[i] for i,tm in enumerate(hpL) if tm<=args.structureThresh]
-	if len(passHP)==0:
-		print(f"Skipping hairpin filter because none of the options are below specified threshold.")
-	else:
-		toAddSL = passHP[:]
-		logD["hairpin"] = len(toAddSL)
-# 	print(f"{len(toAddSL)} sequences passed Hairpin check. Avg Length = {avglen(toAddSL)}.")
-	
-	# Homodimer filter
-	primerL = [cl+coreSeq for cl in toAddSL]
-	hmL = [maxHomodimer(ps) for ps in primerL]
-	passHM = [toAddSL[i] for i,tm in enumerate(hmL) if tm<=args.structureThresh]
-	if len(passHM)==0:
-		print(f"Skipping homodimer filter because none of the options are below specified threshold.")
-	else:
-		toAddSL = passHM[:]
-		logD["homodimer"] = len(toAddSL)
-# 	print(f"{len(toAddSL)} sequences passed Homodimer check. Avg Length = {avglen(toAddSL)}.")
-	
-	# For filtered clamp options, count the number of mismatches between the clamp and each sequence
-	maxMM=defaultdict(list)
-	avgMM=defaultdict(list)
-	mmD={}
-	ammD={}
-	for cs in toAddSL:
-		mismatches=[]
-		for n,s in toAddD.items():
-			mis = sum([1 for i in range(len(cs)) if s[-i] != cs[-i]])
-			mismatches.append(mis)
-		mmD[cs] = mismatches
-		maxMM[max(mismatches)].append(cs)
-		avgMM[np.mean(mismatches)].append(cs)
-		ammD[cs] = np.mean(mismatches)
-	
-	# Initial selection based on the maximum number of mismatches between the clamp and the targets
-	minMaxMM = min(maxMM.keys())
-	output = maxMM[minMaxMM]
-	
-	# If a focus on max mismatches alone returns more options than the user requested
-	if len(output)>args.max2report:
-		sortedSeqs = sorted([(ammD[cs],cs) for cs in output])
-		output = [x[1] for x in sortedSeqs[:args.max2report]]
-	# If a focus on max mismatches alone returns fewer options than the user requested
-	elif len(output)<args.max2report:
-		extra=[]
-		thisMax = minMaxMM
-		needed=args.max2report-len(output)
-		while len(extra)<needed:
-			thisMax+=1
-			for k,v in maxMM.items():
-				if k<=thisMax and k != minMaxMM:
-					extra+=v
-		if len(extra)>needed:
-			sortedSeqs = sorted([(ammD[cs],cs) for cs in extra])
-			extra = [x[1] for x in sortedSeqs[:needed]]
-
-		output+=extra 
-
-	primerL = [cl+coreSeq for cl in output]
-
-	return primerL, output, [mmD[cs] for cs in output], logD
-
-def avglen(sL):
-	lenL = [len(s) for s in sL]
-	return np.mean(lenL)
 
 
 if __name__ == '__main__':
