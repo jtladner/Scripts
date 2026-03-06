@@ -47,6 +47,8 @@ def main():
 	# Construct log file name, if not provided
 	if not args.log:
 		dirName = os.path.dirname(args.outName)
+		if not dirName:
+			dirName="."
 		base_noExt = Path(args.outName).stem
 		args.log = f"{dirName}/{base_noExt}_Log.tsv"
 	
