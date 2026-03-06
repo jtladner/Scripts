@@ -9,7 +9,7 @@ import inout as io		  # Available at: https://github.com/jtladner/Modules
 
 import numpy as np
 import itertools as it
-import scipy.stats as stats
+# import scipy.stats as stats
 import pandas as pd
 from collections import defaultdict
 import primer3
