@@ -22,7 +22,7 @@ def main():
 	# Note that these arguments are added directly to the new argument group "reqArgs", not "parser" 
 	reqArgs.add_argument('-i', '--inName',  help='Input csv file with info for primers exported from j-codehop', required=True)
 	reqArgs.add_argument('-o', '--outName',  help='Name fo output tsv file that can be used as input for primersFromCodeHopCores.py', required=True)
-	reqArgs.add_argument('-d', '--inDelim', default=", " help='Delimiter used in the input file')
+	reqArgs.add_argument('-d', '--inDelim', default=", ", help='Delimiter used in the input file')
 
 	# Arguments below here will NOT be used if '--simpleConsensus' flag is used.
 # 	parser.add_argument('--maxMeltTemp', default=70, type=float, help='Target melting temperature for full primer, core + clamp.')
