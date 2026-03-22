@@ -172,7 +172,7 @@ def main():
 
 		else:
 			for pD in infoDL:
-				infoDL[i]["Score"] = score
+				pD["Score"] = 0
 				outStr = "\t".join([str(pD[c]) for c in outCats])
 				fout.write(f"{outStr}\n")
 
