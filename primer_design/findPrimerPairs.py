@@ -74,7 +74,7 @@ def main():
 	
 	# Step through each forward primer
 	for ftup, foptL in forPrimerD.items():
-		# Step through each forward primer
+		# Step through each reverse primer
 		for rtup, roptL in revPrimerD.items():
 			
 			# Check whether average amplicon length fits specified range
@@ -83,8 +83,9 @@ def main():
 			ampSeqs = [s[ampStart-1:ampEnd].replace("-", "") for s in fD.values()]
 			ampLen = [len(s) for s in ampSeqs]
 			avgAmpLen = np.mean(ampLen)
+			
 			if args.minAmpLen <= avgAmpLen <= args.maxAmpLen:
-				
+
 				for eachF in foptL:
 					if not args.applyStructureThresh_toAll or max([eachF["AvgHomoDimTm"], eachF["AvgHairpinTm"],]) <= args.structureThresh:
 						allPrimersF = st.expand_degenerate_seq(eachF["Sequence"])

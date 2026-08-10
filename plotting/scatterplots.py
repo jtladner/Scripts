@@ -160,18 +160,18 @@ def onlyInclude(dataD, header, val):
 def prepData(dataD, opts):
 	yHeadList = opts.yHead.split(",")
 	for each in yHeadList:
-		if opts.yLog:
+		if opts.yLog is not False:
 			dataD[each] = [np.log10(float(a)+opts.yLog) if a else None for a in dataD[each]]
-		if opts.yLog2:
+		if opts.yLog2 is not False:
 			dataD[each] = [np.log2(float(a)+opts.yLog2) if a else None for a in dataD[each]]
 		else:
 			dataD[each] = [float(a) if a else None for a in dataD[each]]
 
 	xHeadList = opts.xHead.split(",")
 	for each in xHeadList:
-		if opts.xLog:
+		if opts.xLog is not False:
 			dataD[each] = [np.log10(float(a)+opts.xLog)  if a else None for a in dataD[each]]
-		elif opts.xLog2:
+		elif opts.xLog2 is not False:
 			dataD[each] = [np.log2(float(a)+opts.xLog2)  if a else None for a in dataD[each]]
 		else:
 			dataD[each] = [float(a) if a else None for a in dataD[each]]

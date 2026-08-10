@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 #This script reads a file that contains info for a number of subsequences that you want to output to a new file
 #The new seqs are output to stdout

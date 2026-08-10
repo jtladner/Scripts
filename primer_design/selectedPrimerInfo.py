@@ -7,12 +7,25 @@ import seqtools as st	   # Available at: https://github.com/jtladner/Modules
 import inout as io		  # Available at: https://github.com/jtladner/Modules
 from collections import defaultdict
 
+from Bio.SeqUtils import MeltingTemp as mt
+
+# # Define your sequences
+# primer = "ATGCGTAA"
+# template = "TACACATT" # Note the mismatch: G vs A at the 4th position
+# 
+# # Calculate Tm with mismatch correction
+# # 'c_seq' is the complementary template sequence (3'->5')
+# tm = mt.Tm_NN(primer, c_seq=template)
+# 
+# print(f"Melting Temperature: {tm:.2f}°C")
+
+
 # import numpy as np
 # import pandas as pd
 #import primer3
 
 
-# The purpose of this script is to parse an output file from j-codehop (exported primers) and prepare it for input into primersFromCodeHopCores.py
+# The purpose of this script is to summarize how well selected primers match with the target reference sequences
 
 def main():
 
